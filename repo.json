@@ -1,25 +1,25 @@
 [
-  {
-    "Author": "Rowsai",
-    "Name": "magicLock",
-    "InternalName": "magicLock",
-    "AssemblyVersion": "0.0.0.1",
-    "Description": "絶妖星乱舞のケフカの詠唱アクションを監視し、magicLock / magicCharge の判定テキストをプレイヤー頭上へ表示します。",
-    "ApplicableVersion": "any",
-    "DalamudApiLevel": 15,
-    "Punchline": "絶妖星乱舞 ケフカ詠唱テキスト表示",
-    "RepoUrl": "https://github.com/Rowsai/magicLock",
-    "DownloadLinkInstall": "https://github.com/Rowsai/magicLock/releases/download/v0.0.0.1/magicLock.zip",
-    "DownloadLinkUpdate": "https://github.com/Rowsai/magicLock/releases/download/v0.0.0.1/magicLock.zip",
-    "DownloadLinkTesting": "https://github.com/Rowsai/magicLock/releases/download/v0.0.0.1/magicLock.zip",
-    "LoadRequiredState": 0,
-    "LoadSync": false,
-    "CanUnloadAsync": false,
-    "Tags": [
-      "kefka",
-      "ultimate",
-      "overlay",
-      "magicLock"
-    ]
-  }
+    {
+        "Author": "Rowsai",
+        "Name": "magicLook",
+        "InternalName": "magicLook",
+        "AssemblyVersion": "0.0.0.1",
+        "Description": "絶妖星乱舞のケフカの詠唱アクションを監視し、magicLook / magicCharge の判定テキストをプレイヤー頭上へ表示します。",
+        "ApplicableVersion": "any",
+        "DalamudApiLevel": 15,
+        "Punchline": "絶妖星乱舞 ケフカ詠唱テキスト表示",
+        "RepoUrl": "https://github.com/Rowsai/magicLook",
+        "DownloadLinkInstall": "https://github.com/Rowsai/magicLook/releases/download/v0.0.0.1/magicLook.zip",
+        "DownloadLinkUpdate": "https://github.com/Rowsai/magicLook/releases/download/v0.0.0.1/magicLook.zip",
+        "DownloadLinkTesting": "https://github.com/Rowsai/magicLook/releases/download/v0.0.0.1/magicLook.zip",
+        "LoadRequiredState": 0,
+        "LoadSync": false,
+        "CanUnloadAsync": false,
+        "Tags": [
+            "kefka",
+            "ultimate",
+            "overlay",
+            "magicLook"
+        ]
+    }
 ]
