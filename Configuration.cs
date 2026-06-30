@@ -108,6 +108,8 @@ public sealed class Configuration : IPluginConfiguration
 
     public string GrandCrossWaterCompressionText { get; set; } = "水属性圧縮";
 
+    public string GrandCrossAccelerationBombText { get; set; } = "加速度爆弾";
+
     public List<ActionTextSetting> ActionTextSettings { get; set; } = new();
 
     public void EnsureDefaults()

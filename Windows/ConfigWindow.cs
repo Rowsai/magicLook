@@ -11,7 +11,7 @@ internal sealed class ConfigWindow : Window
     private readonly Configuration configuration;
 
     public ConfigWindow(Plugin plugin, Configuration configuration)
-        : base("magicLock 設定###magicLockConfig")
+        : base("magicLook 設定###magicLookConfig")
     {
         this.plugin = plugin;
         this.configuration = configuration;
@@ -28,7 +28,7 @@ internal sealed class ConfigWindow : Window
 
         ImGui.Separator();
 
-        if (ImGui.BeginTabBar("magicLockTabBar"))
+        if (ImGui.BeginTabBar("magicLookTabBar"))
         {
             if (ImGui.BeginTabItem("magicLock"))
             {
@@ -256,6 +256,7 @@ internal sealed class ConfigWindow : Window
 
             ImGui.TextUnformatted("対象ActionId: 47892 / グランドクロス");
             ImGui.TextUnformatted("内部ステータス: StatusId 2056 / Param 1121=偽, 1122=本物");
+            ImGui.TextUnformatted("デバフ取得対象: 自分のみ");
         }
 
         if (ImGui.CollapsingHeader("GrandCross 表示位置", ImGuiTreeNodeFlags.DefaultOpen))
@@ -289,6 +290,7 @@ internal sealed class ConfigWindow : Window
             changed |= DrawInputTextAndAssign("5543 / 呪詛の叫声", this.configuration.GrandCrossCurseShriekText, v => this.configuration.GrandCrossCurseShriekText = v);
             changed |= DrawInputTextAndAssign("5544 / フォークライトニング", this.configuration.GrandCrossForkedLightningText, v => this.configuration.GrandCrossForkedLightningText = v);
             changed |= DrawInputTextAndAssign("5545 / 水属性圧縮", this.configuration.GrandCrossWaterCompressionText, v => this.configuration.GrandCrossWaterCompressionText = v);
+            changed |= DrawInputTextAndAssign("5546 / 加速度爆弾", this.configuration.GrandCrossAccelerationBombText, v => this.configuration.GrandCrossAccelerationBombText = v);
         }
 
         if (ImGui.CollapsingHeader("GrandCross テストモード", ImGuiTreeNodeFlags.DefaultOpen))

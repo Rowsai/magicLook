@@ -14,7 +14,7 @@ namespace MagicLock;
 
 public sealed class Plugin : IDalamudPlugin
 {
-    private const string CommandName = "/magiclock";
+    private const string CommandName = "/magiclook";
 
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly ICommandManager commandManager;
@@ -24,7 +24,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly IObjectTable objectTable;
     private readonly IPluginLog log;
 
-    private readonly WindowSystem windowSystem = new("magicLock");
+    private readonly WindowSystem windowSystem = new("magicLook");
     private readonly ConfigWindow configWindow;
 
     private readonly Configuration configuration;
@@ -53,6 +53,7 @@ public sealed class Plugin : IDalamudPlugin
     private string currentGrandCrossCasterName = string.Empty;
 
     private readonly List<string> grandCrossHeldTexts = new();
+    private HashSet<string> grandCrossStatusSnapshot = new();
 
     internal string LastCasterName { get; private set; } = string.Empty;
     internal uint LastActionId { get; private set; }
@@ -93,7 +94,7 @@ public sealed class Plugin : IDalamudPlugin
 
         this.commandManager.AddHandler(CommandName, new CommandInfo(this.OnCommand)
         {
-            HelpMessage = "magicLock の設定画面を開きます。"
+            HelpMessage = "magicLook の設定画面を開きます。"
         });
 
         this.framework.Update += this.OnFrameworkUpdate;
@@ -166,6 +167,7 @@ public sealed class Plugin : IDalamudPlugin
         this.currentGrandCrossInternalParam = 0;
         this.currentGrandCrossCasterName = string.Empty;
         this.grandCrossHeldTexts.Clear();
+        this.grandCrossStatusSnapshot.Clear();
 
         this.LastGrandCrossEvent = "リセット";
         this.LastGrandCrossResult = string.Empty;
@@ -204,6 +206,7 @@ public sealed class Plugin : IDalamudPlugin
 
         result.Add($"詠唱中: {(this.grandCrossCasting ? "はい" : "いいえ")}");
         result.Add($"ステータス取得待ち: {(this.pendingGrandCrossStatusCapture ? "はい" : "いいえ")}");
+        result.Add("デバフ取得対象: 自分のみ");
         result.Add($"取得数: {this.grandCrossHeldTexts.Count} / 3");
 
         result.Add($"1回目: {(this.grandCrossHeldTexts.Count >= 1 ? this.grandCrossHeldTexts[0] : "未取得")}");
@@ -570,6 +573,14 @@ public sealed class Plugin : IDalamudPlugin
                 this.grandCrossCycleCompleted = false;
             }
 
+            if (!this.grandCrossCasting)
+            {
+                this.grandCrossStatusSnapshot = this.CreateGrandCrossStatusSnapshot();
+
+                this.LastGrandCrossEvent =
+                    $"グランドクロス詠唱開始: {grandCrossCaster.Name} / 47892";
+            }
+
             this.grandCrossCasting = true;
             this.pendingGrandCrossStatusCapture = false;
             this.currentGrandCrossCasterName = grandCrossCaster.Name.ToString();
@@ -600,16 +611,23 @@ public sealed class Plugin : IDalamudPlugin
         if (!this.pendingGrandCrossStatusCapture)
             return;
 
-        if (DateTime.Now > this.pendingGrandCrossStatusCaptureUntil)
+        var statusText = this.FindGrandCrossStatusText(preferNewStatusOnly: true);
+
+        if (string.IsNullOrWhiteSpace(statusText) && DateTime.Now > this.pendingGrandCrossStatusCaptureUntil)
         {
-            this.pendingGrandCrossStatusCapture = false;
-            this.LastGrandCrossEvent = "グランドクロス付与ステータス取得タイムアウト";
-            return;
+            statusText = this.FindGrandCrossStatusText(preferNewStatusOnly: false);
         }
 
-        var statusText = this.FindGrandCrossStatusText();
         if (string.IsNullOrWhiteSpace(statusText))
+        {
+            if (DateTime.Now > this.pendingGrandCrossStatusCaptureUntil)
+            {
+                this.pendingGrandCrossStatusCapture = false;
+                this.LastGrandCrossEvent = "グランドクロス付与ステータス取得タイムアウト";
+            }
+
             return;
+        }
 
         if (this.pendingGrandCrossIsFake)
             statusText = $"{this.configuration.GrandCrossFakePrefix}{statusText}";
@@ -679,33 +697,52 @@ public sealed class Plugin : IDalamudPlugin
         return this.currentGrandCrossInternalParam;
     }
 
-    private string FindGrandCrossStatusText()
+    private string FindGrandCrossStatusText(bool preferNewStatusOnly)
     {
-        foreach (var obj in this.objectTable)
+        var localPlayer = this.GetLocalPlayerAsBattleChara();
+        if (localPlayer == null)
+            return string.Empty;
+
+        foreach (var status in localPlayer.StatusList)
         {
-            if (obj is not IBattleChara battleChara)
+            var text = this.GetGrandCrossStatusDisplayText(status.StatusId);
+            if (string.IsNullOrWhiteSpace(text))
                 continue;
 
-            if (this.configuration.GrandCrossFilterByEnemyName)
-            {
-                var name = battleChara.Name.ToString();
+            var key = this.CreateGrandCrossStatusKey(localPlayer, status.StatusId);
 
-                if (string.IsNullOrWhiteSpace(this.configuration.GrandCrossEnemyNameKeyword))
-                    continue;
+            if (preferNewStatusOnly && this.grandCrossStatusSnapshot.Contains(key))
+                continue;
 
-                if (!name.Contains(this.configuration.GrandCrossEnemyNameKeyword, StringComparison.OrdinalIgnoreCase))
-                    continue;
-            }
-
-            foreach (var status in battleChara.StatusList)
-            {
-                var text = this.GetGrandCrossStatusDisplayText(status.StatusId);
-                if (!string.IsNullOrWhiteSpace(text))
-                    return text;
-            }
+            return text;
         }
 
         return string.Empty;
+    }
+
+    private HashSet<string> CreateGrandCrossStatusSnapshot()
+    {
+        var result = new HashSet<string>();
+
+        var localPlayer = this.GetLocalPlayerAsBattleChara();
+        if (localPlayer == null)
+            return result;
+
+        foreach (var status in localPlayer.StatusList)
+        {
+            var text = this.GetGrandCrossStatusDisplayText(status.StatusId);
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            result.Add(this.CreateGrandCrossStatusKey(localPlayer, status.StatusId));
+        }
+
+        return result;
+    }
+
+    private string CreateGrandCrossStatusKey(IBattleChara battleChara, uint statusId)
+    {
+        return $"{battleChara.EntityId}:{statusId}";
     }
 
     private string GetGrandCrossStatusDisplayText(uint statusId)
@@ -719,6 +756,7 @@ public sealed class Plugin : IDalamudPlugin
             5543 => this.configuration.GrandCrossCurseShriekText,
             5544 => this.configuration.GrandCrossForkedLightningText,
             5545 => this.configuration.GrandCrossWaterCompressionText,
+            5546 => this.configuration.GrandCrossAccelerationBombText,
             _ => string.Empty
         };
     }
@@ -808,6 +846,19 @@ public sealed class Plugin : IDalamudPlugin
         catch (Exception ex)
         {
             this.log.Debug(ex, "ObjectTable[0] からローカルプレイヤーを取得できませんでした。");
+            return null;
+        }
+    }
+
+    private IBattleChara? GetLocalPlayerAsBattleChara()
+    {
+        try
+        {
+            return this.objectTable[0] as IBattleChara;
+        }
+        catch (Exception ex)
+        {
+            this.log.Debug(ex, "ObjectTable[0] からローカルプレイヤーをIBattleCharaとして取得できませんでした。");
             return null;
         }
     }
