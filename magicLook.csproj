@@ -1,0 +1,18 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.0.0.1</Version>
+    <Authors>Rowsai</Authors>
+    <Company>Rowsai</Company>
+    <Product>magicLock</Product>
+    <AssemblyName>magicLock</AssemblyName>
+    <RootNamespace>MagicLock</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="magicLock.json" />
+  </ItemGroup>
+</Project>
