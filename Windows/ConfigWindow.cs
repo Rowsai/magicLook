@@ -16,7 +16,7 @@ internal sealed class ConfigWindow : Window
         this.plugin = plugin;
         this.configuration = configuration;
 
-        this.Size = new Vector2(720, 720);
+        this.Size = new Vector2(760, 760);
         this.SizeCondition = ImGuiCond.FirstUseEver;
     }
 
@@ -39,6 +39,12 @@ internal sealed class ConfigWindow : Window
             if (ImGui.BeginTabItem("magicCharge"))
             {
                 this.DrawMagicChargeTab(ref changed);
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("GrandCross"))
+            {
+                this.DrawGrandCrossTab(ref changed);
                 ImGui.EndTabItem();
             }
 
@@ -78,20 +84,20 @@ internal sealed class ConfigWindow : Window
             }
 
             var filterByCasterName = this.configuration.FilterByCasterName;
-            if (ImGui.Checkbox("詠唱者名で絞り込む", ref filterByCasterName))
+            if (ImGui.Checkbox("ケフカ系 詠唱者名で絞り込む", ref filterByCasterName))
             {
                 this.configuration.FilterByCasterName = filterByCasterName;
                 changed = true;
             }
 
             var casterKeyword = this.configuration.CasterNameKeyword;
-            if (ImGui.InputText("詠唱者名キーワード", ref casterKeyword, 128))
+            if (ImGui.InputText("ケフカ系 詠唱者名キーワード", ref casterKeyword, 128))
             {
                 this.configuration.CasterNameKeyword = casterKeyword;
                 changed = true;
             }
 
-            ImGui.TextUnformatted("※ 検出しない場合は、詠唱者名絞り込みをOFFにしてください。");
+            ImGui.TextUnformatted("※ magicLock / magicCharge の検出に使います。検出しない場合はOFFにしてください。");
         }
 
         return changed;
@@ -108,40 +114,11 @@ internal sealed class ConfigWindow : Window
 
         if (ImGui.CollapsingHeader("magicLock 表示位置", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            var worldHeightOffset = this.configuration.MagicLockWorldHeightOffset;
-            if (DrawFloat("高さ補正 / World Y", ref worldHeightOffset, 0.05f, 0.25f))
-            {
-                this.configuration.MagicLockWorldHeightOffset = worldHeightOffset;
-                changed = true;
-            }
-
-            var screenOffsetX = this.configuration.MagicLockScreenOffsetX;
-            if (DrawFloat("横位置補正 / Screen X", ref screenOffsetX, 1.0f, 10.0f))
-            {
-                this.configuration.MagicLockScreenOffsetX = screenOffsetX;
-                changed = true;
-            }
-
-            var screenOffsetY = this.configuration.MagicLockScreenOffsetY;
-            if (DrawFloat("縦位置補正 / Screen Y", ref screenOffsetY, 1.0f, 10.0f))
-            {
-                this.configuration.MagicLockScreenOffsetY = screenOffsetY;
-                changed = true;
-            }
-
-            var fontSize = this.configuration.MagicLockFontSize;
-            if (DrawFloat("文字サイズ", ref fontSize, 1.0f, 5.0f))
-            {
-                this.configuration.MagicLockFontSize = Math.Max(8.0f, fontSize);
-                changed = true;
-            }
-
-            var displaySeconds = this.configuration.MagicLockDisplaySeconds;
-            if (DrawFloat("表示秒数", ref displaySeconds, 0.1f, 0.5f))
-            {
-                this.configuration.MagicLockDisplaySeconds = Math.Max(0.1f, displaySeconds);
-                changed = true;
-            }
+            changed |= DrawFloatAndAssign("高さ補正 / World Y", this.configuration.MagicLockWorldHeightOffset, v => this.configuration.MagicLockWorldHeightOffset = v, 0.05f, 0.25f);
+            changed |= DrawFloatAndAssign("横位置補正 / Screen X", this.configuration.MagicLockScreenOffsetX, v => this.configuration.MagicLockScreenOffsetX = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("縦位置補正 / Screen Y", this.configuration.MagicLockScreenOffsetY, v => this.configuration.MagicLockScreenOffsetY = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("文字サイズ", this.configuration.MagicLockFontSize, v => this.configuration.MagicLockFontSize = Math.Max(8.0f, v), 1.0f, 5.0f);
+            changed |= DrawFloatAndAssign("表示秒数", this.configuration.MagicLockDisplaySeconds, v => this.configuration.MagicLockDisplaySeconds = Math.Max(0.1f, v), 0.1f, 0.5f);
 
             var drawBackground = this.configuration.MagicLockDrawBackground;
             if (ImGui.Checkbox("背景を表示する##MagicLockBg", ref drawBackground))
@@ -156,33 +133,10 @@ internal sealed class ConfigWindow : Window
 
         if (ImGui.CollapsingHeader("magicLock 組み合わせ判定 表示テキスト", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            var bothNoStepText = this.configuration.MagicLockBothNoStepText;
-            if (ImGui.InputText("47768 + 47775", ref bothNoStepText, 256))
-            {
-                this.configuration.MagicLockBothNoStepText = bothNoStepText;
-                changed = true;
-            }
-
-            var bothStepText = this.configuration.MagicLockBothStepText;
-            if (ImGui.InputText("47771/47774 + 47776/47777", ref bothStepText, 256))
-            {
-                this.configuration.MagicLockBothStepText = bothStepText;
-                changed = true;
-            }
-
-            var lineOnlyStepText = this.configuration.MagicLockLineOnlyStepText;
-            if (ImGui.InputText("47768 + 47776/47777", ref lineOnlyStepText, 256))
-            {
-                this.configuration.MagicLockLineOnlyStepText = lineOnlyStepText;
-                changed = true;
-            }
-
-            var fanOnlyStepText = this.configuration.MagicLockFanOnlyStepText;
-            if (ImGui.InputText("47771/47774 + 47775", ref fanOnlyStepText, 256))
-            {
-                this.configuration.MagicLockFanOnlyStepText = fanOnlyStepText;
-                changed = true;
-            }
+            changed |= DrawInputTextAndAssign("47768 + 47775", this.configuration.MagicLockBothNoStepText, v => this.configuration.MagicLockBothNoStepText = v);
+            changed |= DrawInputTextAndAssign("47771/47774 + 47776/47777", this.configuration.MagicLockBothStepText, v => this.configuration.MagicLockBothStepText = v);
+            changed |= DrawInputTextAndAssign("47768 + 47776/47777", this.configuration.MagicLockLineOnlyStepText, v => this.configuration.MagicLockLineOnlyStepText = v);
+            changed |= DrawInputTextAndAssign("47771/47774 + 47775", this.configuration.MagicLockFanOnlyStepText, v => this.configuration.MagicLockFanOnlyStepText = v);
         }
 
         if (ImGui.CollapsingHeader("magicLock アクション別 表示テキスト", ImGuiTreeNodeFlags.DefaultOpen))
@@ -237,40 +191,11 @@ internal sealed class ConfigWindow : Window
 
         if (ImGui.CollapsingHeader("magicCharge 表示位置", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            var worldHeightOffset = this.configuration.MagicChargeWorldHeightOffset;
-            if (DrawFloat("高さ補正 / World Y##Charge", ref worldHeightOffset, 0.05f, 0.25f))
-            {
-                this.configuration.MagicChargeWorldHeightOffset = worldHeightOffset;
-                changed = true;
-            }
-
-            var screenOffsetX = this.configuration.MagicChargeScreenOffsetX;
-            if (DrawFloat("横位置補正 / Screen X##Charge", ref screenOffsetX, 1.0f, 10.0f))
-            {
-                this.configuration.MagicChargeScreenOffsetX = screenOffsetX;
-                changed = true;
-            }
-
-            var screenOffsetY = this.configuration.MagicChargeScreenOffsetY;
-            if (DrawFloat("縦位置補正 / Screen Y##Charge", ref screenOffsetY, 1.0f, 10.0f))
-            {
-                this.configuration.MagicChargeScreenOffsetY = screenOffsetY;
-                changed = true;
-            }
-
-            var fontSize = this.configuration.MagicChargeFontSize;
-            if (DrawFloat("文字サイズ##Charge", ref fontSize, 1.0f, 5.0f))
-            {
-                this.configuration.MagicChargeFontSize = Math.Max(8.0f, fontSize);
-                changed = true;
-            }
-
-            var displaySeconds = this.configuration.MagicChargeDisplaySeconds;
-            if (DrawFloat("表示秒数##Charge", ref displaySeconds, 0.1f, 0.5f))
-            {
-                this.configuration.MagicChargeDisplaySeconds = Math.Max(0.1f, displaySeconds);
-                changed = true;
-            }
+            changed |= DrawFloatAndAssign("高さ補正 / World Y##Charge", this.configuration.MagicChargeWorldHeightOffset, v => this.configuration.MagicChargeWorldHeightOffset = v, 0.05f, 0.25f);
+            changed |= DrawFloatAndAssign("横位置補正 / Screen X##Charge", this.configuration.MagicChargeScreenOffsetX, v => this.configuration.MagicChargeScreenOffsetX = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("縦位置補正 / Screen Y##Charge", this.configuration.MagicChargeScreenOffsetY, v => this.configuration.MagicChargeScreenOffsetY = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("文字サイズ##Charge", this.configuration.MagicChargeFontSize, v => this.configuration.MagicChargeFontSize = Math.Max(8.0f, v), 1.0f, 5.0f);
+            changed |= DrawFloatAndAssign("表示秒数##Charge", this.configuration.MagicChargeDisplaySeconds, v => this.configuration.MagicChargeDisplaySeconds = Math.Max(0.1f, v), 0.1f, 0.5f);
 
             var drawBackground = this.configuration.MagicChargeDrawBackground;
             if (ImGui.Checkbox("背景を表示する##MagicChargeBg", ref drawBackground))
@@ -282,50 +207,16 @@ internal sealed class ConfigWindow : Window
 
         if (ImGui.CollapsingHeader("magicCharge 判定結果 表示テキスト", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            var text1 = this.configuration.MagicChargeFanNoStepLineNoStepText;
-            if (ImGui.InputText("47768 + 47775", ref text1, 256))
-            {
-                this.configuration.MagicChargeFanNoStepLineNoStepText = text1;
-                changed = true;
-            }
-
-            var text2 = this.configuration.MagicChargeFanNoStepLineStepText;
-            if (ImGui.InputText("47768 + 47776/47777", ref text2, 256))
-            {
-                this.configuration.MagicChargeFanNoStepLineStepText = text2;
-                changed = true;
-            }
-
-            var text3 = this.configuration.MagicChargeFanStepLineNoStepText;
-            if (ImGui.InputText("47771/47774 + 47775", ref text3, 256))
-            {
-                this.configuration.MagicChargeFanStepLineNoStepText = text3;
-                changed = true;
-            }
-
-            var text4 = this.configuration.MagicChargeFanStepLineStepText;
-            if (ImGui.InputText("47771/47774 + 47776/47777", ref text4, 256))
-            {
-                this.configuration.MagicChargeFanStepLineStepText = text4;
-                changed = true;
-            }
-
-            var unknownText = this.configuration.MagicChargeUnknownText;
-            if (ImGui.InputText("判定不能時", ref unknownText, 256))
-            {
-                this.configuration.MagicChargeUnknownText = unknownText;
-                changed = true;
-            }
+            changed |= DrawInputTextAndAssign("47768 + 47775", this.configuration.MagicChargeFanNoStepLineNoStepText, v => this.configuration.MagicChargeFanNoStepLineNoStepText = v);
+            changed |= DrawInputTextAndAssign("47768 + 47776/47777", this.configuration.MagicChargeFanNoStepLineStepText, v => this.configuration.MagicChargeFanNoStepLineStepText = v);
+            changed |= DrawInputTextAndAssign("47771/47774 + 47775", this.configuration.MagicChargeFanStepLineNoStepText, v => this.configuration.MagicChargeFanStepLineNoStepText = v);
+            changed |= DrawInputTextAndAssign("47771/47774 + 47776/47777", this.configuration.MagicChargeFanStepLineStepText, v => this.configuration.MagicChargeFanStepLineStepText = v);
+            changed |= DrawInputTextAndAssign("判定不能時", this.configuration.MagicChargeUnknownText, v => this.configuration.MagicChargeUnknownText = v);
         }
 
         if (ImGui.CollapsingHeader("magicCharge テストモード", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            var testText = this.configuration.MagicChargeTestText;
-            if (ImGui.InputText("テスト表示文字", ref testText, 256))
-            {
-                this.configuration.MagicChargeTestText = testText;
-                changed = true;
-            }
+            changed |= DrawInputTextAndAssign("テスト表示文字", this.configuration.MagicChargeTestText, v => this.configuration.MagicChargeTestText = v);
 
             if (ImGui.Button("magicCharge位置にテスト表示"))
                 this.plugin.TestChargeText(this.configuration.MagicChargeTestText);
@@ -343,10 +234,104 @@ internal sealed class ConfigWindow : Window
         }
     }
 
-    private static bool DrawFloat(string label, ref float value, float step, float stepFast)
+    private void DrawGrandCrossTab(ref bool changed)
     {
+        var grandCrossEnabled = this.configuration.GrandCrossEnabled;
+        if (ImGui.Checkbox("GrandCrossを有効化", ref grandCrossEnabled))
+        {
+            this.configuration.GrandCrossEnabled = grandCrossEnabled;
+            changed = true;
+        }
+
+        if (ImGui.CollapsingHeader("GrandCross 対象設定", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            var filterByEnemyName = this.configuration.GrandCrossFilterByEnemyName;
+            if (ImGui.Checkbox("エネミー名で絞り込む", ref filterByEnemyName))
+            {
+                this.configuration.GrandCrossFilterByEnemyName = filterByEnemyName;
+                changed = true;
+            }
+
+            changed |= DrawInputTextAndAssign("エネミー名キーワード", this.configuration.GrandCrossEnemyNameKeyword, v => this.configuration.GrandCrossEnemyNameKeyword = v);
+
+            ImGui.TextUnformatted("対象ActionId: 47892 / グランドクロス");
+            ImGui.TextUnformatted("内部ステータス: StatusId 2056 / Param 1121=偽, 1122=本物");
+        }
+
+        if (ImGui.CollapsingHeader("GrandCross 表示位置", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            changed |= DrawFloatAndAssign("高さ補正 / World Y##GrandCross", this.configuration.GrandCrossWorldHeightOffset, v => this.configuration.GrandCrossWorldHeightOffset = v, 0.05f, 0.25f);
+            changed |= DrawFloatAndAssign("横位置補正 / Screen X##GrandCross", this.configuration.GrandCrossScreenOffsetX, v => this.configuration.GrandCrossScreenOffsetX = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("縦位置補正 / Screen Y##GrandCross", this.configuration.GrandCrossScreenOffsetY, v => this.configuration.GrandCrossScreenOffsetY = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("文字サイズ##GrandCross", this.configuration.GrandCrossFontSize, v => this.configuration.GrandCrossFontSize = Math.Max(8.0f, v), 1.0f, 5.0f);
+            changed |= DrawFloatAndAssign("表示秒数##GrandCross", this.configuration.GrandCrossDisplaySeconds, v => this.configuration.GrandCrossDisplaySeconds = Math.Max(0.1f, v), 0.1f, 0.5f);
+            changed |= DrawFloatAndAssign("ステータス取得待機秒数##GrandCross", this.configuration.GrandCrossStatusCaptureSeconds, v => this.configuration.GrandCrossStatusCaptureSeconds = Math.Max(0.1f, v), 0.1f, 0.5f);
+
+            var drawBackground = this.configuration.GrandCrossDrawBackground;
+            if (ImGui.Checkbox("背景を表示する##GrandCrossBg", ref drawBackground))
+            {
+                this.configuration.GrandCrossDrawBackground = drawBackground;
+                changed = true;
+            }
+        }
+
+        if (ImGui.CollapsingHeader("GrandCross 表示テキスト設定", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            changed |= DrawInputTextAndAssign("区切り文字", this.configuration.GrandCrossSeparator, v => this.configuration.GrandCrossSeparator = v);
+            changed |= DrawInputTextAndAssign("偽プレフィックス", this.configuration.GrandCrossFakePrefix, v => this.configuration.GrandCrossFakePrefix = v);
+
+            ImGui.Separator();
+
+            changed |= DrawInputTextAndAssign("454 / アラガンフィールド", this.configuration.GrandCrossAllaganFieldText, v => this.configuration.GrandCrossAllaganFieldText = v);
+            changed |= DrawInputTextAndAssign("5464 / 死の超越", this.configuration.GrandCrossDeathBeyondText, v => this.configuration.GrandCrossDeathBeyondText = v);
+            changed |= DrawInputTextAndAssign("4887 / 生者の傷", this.configuration.GrandCrossLivingWoundText, v => this.configuration.GrandCrossLivingWoundText = v);
+            changed |= DrawInputTextAndAssign("4888 / 死者の傷", this.configuration.GrandCrossDeadWoundText, v => this.configuration.GrandCrossDeadWoundText = v);
+            changed |= DrawInputTextAndAssign("5543 / 呪詛の叫声", this.configuration.GrandCrossCurseShriekText, v => this.configuration.GrandCrossCurseShriekText = v);
+            changed |= DrawInputTextAndAssign("5544 / フォークライトニング", this.configuration.GrandCrossForkedLightningText, v => this.configuration.GrandCrossForkedLightningText = v);
+            changed |= DrawInputTextAndAssign("5545 / 水属性圧縮", this.configuration.GrandCrossWaterCompressionText, v => this.configuration.GrandCrossWaterCompressionText = v);
+        }
+
+        if (ImGui.CollapsingHeader("GrandCross テストモード", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            changed |= DrawInputTextAndAssign("テスト表示文字", this.configuration.GrandCrossTestText, v => this.configuration.GrandCrossTestText = v);
+
+            if (ImGui.Button("GrandCross位置にテスト表示"))
+                this.plugin.TestGrandCrossText(this.configuration.GrandCrossTestText);
+        }
+
+        if (ImGui.CollapsingHeader("GrandCross 保持状況リスト", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            foreach (var line in this.plugin.GetGrandCrossStatusLines())
+            {
+                ImGui.TextUnformatted($"・{line}");
+            }
+
+            if (ImGui.Button("GrandCross保持状況をリセット"))
+                this.plugin.ResetGrandCrossState();
+        }
+    }
+
+    private static bool DrawInputTextAndAssign(string label, string currentValue, Action<string> assign)
+    {
+        var value = currentValue;
+        if (!ImGui.InputText(label, ref value, 256))
+            return false;
+
+        assign(value);
+        return true;
+    }
+
+    private static bool DrawFloatAndAssign(string label, float currentValue, Action<float> assign, float step, float stepFast)
+    {
+        var value = currentValue;
         var before = value;
+
         ImGui.InputFloat(label, ref value, step, stepFast, "%.2f");
-        return Math.Abs(before - value) > 0.0001f;
+
+        if (Math.Abs(before - value) <= 0.0001f)
+            return false;
+
+        assign(value);
+        return true;
     }
 }

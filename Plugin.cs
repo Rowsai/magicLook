@@ -35,12 +35,24 @@ public sealed class Plugin : IDalamudPlugin
     private string activeChargeText = string.Empty;
     private DateTime activeChargeUntil = DateTime.MinValue;
 
+    private string activeGrandCrossText = string.Empty;
+    private DateTime activeGrandCrossUntil = DateTime.MinValue;
+
     private HashSet<string> previousCastKeys = new();
 
     private bool waitingForMagicChargeResult;
     private bool magicChargeCycleCompleted;
-
     private readonly List<MagicChargeKind> magicChargeSlots = new();
+
+    private bool grandCrossCasting;
+    private bool grandCrossCycleCompleted;
+    private bool pendingGrandCrossStatusCapture;
+    private DateTime pendingGrandCrossStatusCaptureUntil = DateTime.MinValue;
+    private bool pendingGrandCrossIsFake;
+    private uint currentGrandCrossInternalParam;
+    private string currentGrandCrossCasterName = string.Empty;
+
+    private readonly List<string> grandCrossHeldTexts = new();
 
     internal string LastCasterName { get; private set; } = string.Empty;
     internal uint LastActionId { get; private set; }
@@ -48,6 +60,9 @@ public sealed class Plugin : IDalamudPlugin
 
     internal string LastMagicChargeEvent { get; private set; } = string.Empty;
     internal string LastMagicChargeResult { get; private set; } = string.Empty;
+
+    internal string LastGrandCrossEvent { get; private set; } = string.Empty;
+    internal string LastGrandCrossResult { get; private set; } = string.Empty;
 
     public Plugin(
         IDalamudPluginInterface pluginInterface,
@@ -122,6 +137,15 @@ public sealed class Plugin : IDalamudPlugin
         this.LastMagicChargeResult = text;
     }
 
+    internal void TestGrandCrossText(string text)
+    {
+        this.activeGrandCrossText = text;
+        this.activeGrandCrossUntil = DateTime.Now.AddSeconds(this.configuration.GrandCrossDisplaySeconds);
+
+        this.LastGrandCrossEvent = "テスト";
+        this.LastGrandCrossResult = text;
+    }
+
     internal void ResetMagicChargeState()
     {
         this.waitingForMagicChargeResult = false;
@@ -130,6 +154,21 @@ public sealed class Plugin : IDalamudPlugin
 
         this.LastMagicChargeEvent = "リセット";
         this.LastMagicChargeResult = string.Empty;
+    }
+
+    internal void ResetGrandCrossState()
+    {
+        this.grandCrossCasting = false;
+        this.grandCrossCycleCompleted = false;
+        this.pendingGrandCrossStatusCapture = false;
+        this.pendingGrandCrossStatusCaptureUntil = DateTime.MinValue;
+        this.pendingGrandCrossIsFake = false;
+        this.currentGrandCrossInternalParam = 0;
+        this.currentGrandCrossCasterName = string.Empty;
+        this.grandCrossHeldTexts.Clear();
+
+        this.LastGrandCrossEvent = "リセット";
+        this.LastGrandCrossResult = string.Empty;
     }
 
     internal IReadOnlyList<string> GetMagicChargeStatusLines()
@@ -155,6 +194,30 @@ public sealed class Plugin : IDalamudPlugin
 
         if (!string.IsNullOrWhiteSpace(this.LastMagicChargeResult))
             result.Add($"直近結果: {this.LastMagicChargeResult}");
+
+        return result;
+    }
+
+    internal IReadOnlyList<string> GetGrandCrossStatusLines()
+    {
+        var result = new List<string>();
+
+        result.Add($"詠唱中: {(this.grandCrossCasting ? "はい" : "いいえ")}");
+        result.Add($"ステータス取得待ち: {(this.pendingGrandCrossStatusCapture ? "はい" : "いいえ")}");
+        result.Add($"取得数: {this.grandCrossHeldTexts.Count} / 3");
+
+        result.Add($"1回目: {(this.grandCrossHeldTexts.Count >= 1 ? this.grandCrossHeldTexts[0] : "未取得")}");
+        result.Add($"2回目: {(this.grandCrossHeldTexts.Count >= 2 ? this.grandCrossHeldTexts[1] : "未取得")}");
+        result.Add($"3回目: {(this.grandCrossHeldTexts.Count >= 3 ? this.grandCrossHeldTexts[2] : "未取得")}");
+
+        if (this.currentGrandCrossInternalParam != 0)
+            result.Add($"直近内部Param: {this.currentGrandCrossInternalParam}");
+
+        if (!string.IsNullOrWhiteSpace(this.LastGrandCrossEvent))
+            result.Add($"直近イベント: {this.LastGrandCrossEvent}");
+
+        if (!string.IsNullOrWhiteSpace(this.LastGrandCrossResult))
+            result.Add($"直近結果: {this.LastGrandCrossResult}");
 
         return result;
     }
@@ -194,6 +257,17 @@ public sealed class Plugin : IDalamudPlugin
             this.configuration.MagicChargeDrawBackground,
             new Vector4(0.35f, 0.9f, 1.0f, 1.0f)
         );
+
+        this.DrawOverheadText(
+            this.activeGrandCrossText,
+            this.activeGrandCrossUntil,
+            this.configuration.GrandCrossWorldHeightOffset,
+            this.configuration.GrandCrossScreenOffsetX,
+            this.configuration.GrandCrossScreenOffsetY,
+            this.configuration.GrandCrossFontSize,
+            this.configuration.GrandCrossDrawBackground,
+            new Vector4(1.0f, 0.45f, 0.95f, 1.0f)
+        );
     }
 
     private void OnFrameworkUpdate(IFramework _)
@@ -215,6 +289,7 @@ public sealed class Plugin : IDalamudPlugin
 
         this.ProcessMagicLock(currentCasts);
         this.ProcessMagicCharge(newlyStartedCasts);
+        this.ProcessGrandCross();
     }
 
     private void CollectCastEvents(List<CastEvent> currentCasts, List<CastEvent> newlyStartedCasts)
@@ -234,7 +309,6 @@ public sealed class Plugin : IDalamudPlugin
                 continue;
 
             var casterName = battleChara.Name.ToString();
-
             var key = $"{casterName}:{actionId}";
 
             currentCastKeys.Add(key);
@@ -260,14 +334,9 @@ public sealed class Plugin : IDalamudPlugin
 
         var comboText = this.GetMagicLockComboText(matches);
 
-        if (!string.IsNullOrWhiteSpace(comboText))
-        {
-            this.activeLockText = comboText;
-        }
-        else
-        {
-            this.activeLockText = string.Join("\n", matches.Select(match => match.Text));
-        }
+        this.activeLockText = !string.IsNullOrWhiteSpace(comboText)
+            ? comboText
+            : string.Join("\n", matches.Select(match => match.Text));
 
         this.activeLockUntil = DateTime.Now.AddSeconds(this.configuration.MagicLockDisplaySeconds);
 
@@ -422,9 +491,7 @@ public sealed class Plugin : IDalamudPlugin
         var resultText = this.GetMagicChargeResultText();
 
         if (string.IsNullOrWhiteSpace(resultText))
-        {
             resultText = this.configuration.MagicChargeUnknownText;
-        }
 
         this.activeChargeText = resultText;
         this.activeChargeUntil = DateTime.Now.AddSeconds(this.configuration.MagicChargeDisplaySeconds);
@@ -486,6 +553,186 @@ public sealed class Plugin : IDalamudPlugin
             MagicChargeKind.LineStep => "47776 or 47777 / もりもりサンダガ",
             _ => "未取得"
         };
+    }
+
+    private void ProcessGrandCross()
+    {
+        if (!this.configuration.GrandCrossEnabled)
+            return;
+
+        var grandCrossCaster = this.FindGrandCrossCaster();
+
+        if (grandCrossCaster != null)
+        {
+            if (this.grandCrossCycleCompleted || this.grandCrossHeldTexts.Count >= 3)
+            {
+                this.grandCrossHeldTexts.Clear();
+                this.grandCrossCycleCompleted = false;
+            }
+
+            this.grandCrossCasting = true;
+            this.pendingGrandCrossStatusCapture = false;
+            this.currentGrandCrossCasterName = grandCrossCaster.Name.ToString();
+
+            var param = this.GetGrandCrossInternalParam(grandCrossCaster);
+            if (param == 1121 || param == 1122)
+                this.currentGrandCrossInternalParam = param;
+
+            this.LastGrandCrossEvent =
+                $"グランドクロス詠唱中: {this.currentGrandCrossCasterName} / Param:{this.currentGrandCrossInternalParam}";
+
+            return;
+        }
+
+        if (this.grandCrossCasting)
+        {
+            this.grandCrossCasting = false;
+            this.pendingGrandCrossStatusCapture = true;
+            this.pendingGrandCrossStatusCaptureUntil = DateTime.Now.AddSeconds(this.configuration.GrandCrossStatusCaptureSeconds);
+            this.pendingGrandCrossIsFake = this.currentGrandCrossInternalParam == 1121;
+
+            this.LastGrandCrossEvent =
+                $"グランドクロス詠唱完了: {this.currentGrandCrossCasterName} / Param:{this.currentGrandCrossInternalParam}";
+
+            return;
+        }
+
+        if (!this.pendingGrandCrossStatusCapture)
+            return;
+
+        if (DateTime.Now > this.pendingGrandCrossStatusCaptureUntil)
+        {
+            this.pendingGrandCrossStatusCapture = false;
+            this.LastGrandCrossEvent = "グランドクロス付与ステータス取得タイムアウト";
+            return;
+        }
+
+        var statusText = this.FindGrandCrossStatusText();
+        if (string.IsNullOrWhiteSpace(statusText))
+            return;
+
+        if (this.pendingGrandCrossIsFake)
+            statusText = $"{this.configuration.GrandCrossFakePrefix}{statusText}";
+
+        this.AddGrandCrossHeldText(statusText);
+
+        this.pendingGrandCrossStatusCapture = false;
+        this.pendingGrandCrossIsFake = false;
+
+        this.LastGrandCrossEvent = $"グランドクロス保持: {statusText}";
+        this.LastGrandCrossResult = string.Join(this.configuration.GrandCrossSeparator, this.grandCrossHeldTexts);
+
+        if (this.grandCrossHeldTexts.Count >= 3)
+        {
+            var resultText = string.Join(this.configuration.GrandCrossSeparator, this.grandCrossHeldTexts);
+
+            this.activeGrandCrossText = resultText;
+            this.activeGrandCrossUntil = DateTime.Now.AddSeconds(this.configuration.GrandCrossDisplaySeconds);
+
+            this.grandCrossCycleCompleted = true;
+            this.LastGrandCrossEvent = "グランドクロス3回分表示";
+            this.LastGrandCrossResult = resultText;
+        }
+    }
+
+    private IBattleChara? FindGrandCrossCaster()
+    {
+        foreach (var obj in this.objectTable)
+        {
+            if (obj is not IBattleChara battleChara)
+                continue;
+
+            if (!battleChara.IsCasting)
+                continue;
+
+            if (battleChara.CastActionId != 47892)
+                continue;
+
+            if (this.configuration.GrandCrossFilterByEnemyName)
+            {
+                var name = battleChara.Name.ToString();
+
+                if (string.IsNullOrWhiteSpace(this.configuration.GrandCrossEnemyNameKeyword))
+                    continue;
+
+                if (!name.Contains(this.configuration.GrandCrossEnemyNameKeyword, StringComparison.OrdinalIgnoreCase))
+                    continue;
+            }
+
+            return battleChara;
+        }
+
+        return null;
+    }
+
+    private uint GetGrandCrossInternalParam(IBattleChara battleChara)
+    {
+        foreach (var status in battleChara.StatusList)
+        {
+            if (status.StatusId != 2056)
+                continue;
+
+            if (status.Param == 1121 || status.Param == 1122)
+                return status.Param;
+        }
+
+        return this.currentGrandCrossInternalParam;
+    }
+
+    private string FindGrandCrossStatusText()
+    {
+        foreach (var obj in this.objectTable)
+        {
+            if (obj is not IBattleChara battleChara)
+                continue;
+
+            if (this.configuration.GrandCrossFilterByEnemyName)
+            {
+                var name = battleChara.Name.ToString();
+
+                if (string.IsNullOrWhiteSpace(this.configuration.GrandCrossEnemyNameKeyword))
+                    continue;
+
+                if (!name.Contains(this.configuration.GrandCrossEnemyNameKeyword, StringComparison.OrdinalIgnoreCase))
+                    continue;
+            }
+
+            foreach (var status in battleChara.StatusList)
+            {
+                var text = this.GetGrandCrossStatusDisplayText(status.StatusId);
+                if (!string.IsNullOrWhiteSpace(text))
+                    return text;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private string GetGrandCrossStatusDisplayText(uint statusId)
+    {
+        return statusId switch
+        {
+            454 => this.configuration.GrandCrossAllaganFieldText,
+            5464 => this.configuration.GrandCrossDeathBeyondText,
+            4887 => this.configuration.GrandCrossLivingWoundText,
+            4888 => this.configuration.GrandCrossDeadWoundText,
+            5543 => this.configuration.GrandCrossCurseShriekText,
+            5544 => this.configuration.GrandCrossForkedLightningText,
+            5545 => this.configuration.GrandCrossWaterCompressionText,
+            _ => string.Empty
+        };
+    }
+
+    private void AddGrandCrossHeldText(string text)
+    {
+        if (this.grandCrossHeldTexts.Count < 3)
+        {
+            this.grandCrossHeldTexts.Add(text);
+            return;
+        }
+
+        this.grandCrossHeldTexts.RemoveAt(0);
+        this.grandCrossHeldTexts.Add(text);
     }
 
     private void DrawOverheadText(

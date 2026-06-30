@@ -60,17 +60,53 @@ public sealed class Configuration : IPluginConfiguration
 
     public string MagicChargeUnknownText { get; set; } = "magicCharge 判定不能";
 
-    // 47768 + 47775
     public string MagicChargeFanNoStepLineNoStepText { get; set; } = "直線　踏む／扇　踏む";
 
-    // 47768 + 47776/47777
     public string MagicChargeFanNoStepLineStepText { get; set; } = "直線　踏む／扇　踏まない";
 
-    // 47771/47774 + 47775
     public string MagicChargeFanStepLineNoStepText { get; set; } = "直線　踏まない／扇　踏む";
 
-    // 47771/47774 + 47776/47777
     public string MagicChargeFanStepLineStepText { get; set; } = "直線　踏まない／扇　踏まない";
+
+    public bool GrandCrossEnabled { get; set; } = true;
+
+    public bool GrandCrossFilterByEnemyName { get; set; } = true;
+
+    public string GrandCrossEnemyNameKeyword { get; set; } = "ネオエクスデス";
+
+    public float GrandCrossWorldHeightOffset { get; set; } = 3.25f;
+
+    public float GrandCrossScreenOffsetX { get; set; } = 0.0f;
+
+    public float GrandCrossScreenOffsetY { get; set; } = -130.0f;
+
+    public float GrandCrossFontSize { get; set; } = 28.0f;
+
+    public float GrandCrossDisplaySeconds { get; set; } = 5.0f;
+
+    public bool GrandCrossDrawBackground { get; set; } = true;
+
+    public float GrandCrossStatusCaptureSeconds { get; set; } = 3.0f;
+
+    public string GrandCrossSeparator { get; set; } = "_";
+
+    public string GrandCrossFakePrefix { get; set; } = "偽";
+
+    public string GrandCrossTestText { get; set; } = "GrandCross テスト表示";
+
+    public string GrandCrossAllaganFieldText { get; set; } = "アラガンフィールド";
+
+    public string GrandCrossDeathBeyondText { get; set; } = "死の超越";
+
+    public string GrandCrossLivingWoundText { get; set; } = "生者の傷";
+
+    public string GrandCrossDeadWoundText { get; set; } = "死者の傷";
+
+    public string GrandCrossCurseShriekText { get; set; } = "呪詛の叫声";
+
+    public string GrandCrossForkedLightningText { get; set; } = "フォークライトニング";
+
+    public string GrandCrossWaterCompressionText { get; set; } = "水属性圧縮";
 
     public List<ActionTextSetting> ActionTextSettings { get; set; } = new();
 
