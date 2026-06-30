@@ -4,8 +4,8 @@
     <Authors>Rowsai</Authors>
     <Company>Rowsai</Company>
     <Product>magicLock</Product>
-    <AssemblyName>magicLock</AssemblyName>
-    <RootNamespace>MagicLock</RootNamespace>
+    <AssemblyName>magicLook</AssemblyName>
+    <RootNamespace>MagicLook</RootNamespace>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -13,6 +13,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="magicLock.json" />
+    <Content Include="magicLook.json" />
   </ItemGroup>
 </Project>
