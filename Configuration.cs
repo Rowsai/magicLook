@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Dalamud.Configuration;
 using Dalamud.Plugin;
 
-namespace MagicLock;
+namespace MagicLook;
 
 [Serializable]
 public sealed class Configuration : IPluginConfiguration
@@ -20,27 +20,27 @@ public sealed class Configuration : IPluginConfiguration
 
     public string CasterNameKeyword { get; set; } = "ケフカ";
 
-    public bool MagicLockEnabled { get; set; } = true;
+    public bool MagicLookEnabled { get; set; } = true;
 
-    public float MagicLockWorldHeightOffset { get; set; } = 2.35f;
+    public float MagicLookWorldHeightOffset { get; set; } = 2.35f;
 
-    public float MagicLockScreenOffsetX { get; set; } = 0.0f;
+    public float MagicLookScreenOffsetX { get; set; } = 0.0f;
 
-    public float MagicLockScreenOffsetY { get; set; } = -20.0f;
+    public float MagicLookScreenOffsetY { get; set; } = -20.0f;
 
-    public float MagicLockFontSize { get; set; } = 28.0f;
+    public float MagicLookFontSize { get; set; } = 28.0f;
 
-    public float MagicLockDisplaySeconds { get; set; } = 2.0f;
+    public float MagicLookDisplaySeconds { get; set; } = 2.0f;
 
-    public bool MagicLockDrawBackground { get; set; } = true;
+    public bool MagicLookDrawBackground { get; set; } = true;
 
-    public string MagicLockBothNoStepText { get; set; } = "両方踏まない";
+    public string MagicLookBothNoStepText { get; set; } = "両方踏まない";
 
-    public string MagicLockBothStepText { get; set; } = "両方踏む";
+    public string MagicLookBothStepText { get; set; } = "両方踏む";
 
-    public string MagicLockLineOnlyStepText { get; set; } = "直線だけ踏む";
+    public string MagicLookLineOnlyStepText { get; set; } = "直線だけ踏む";
 
-    public string MagicLockFanOnlyStepText { get; set; } = "扇だけ踏む";
+    public string MagicLookFanOnlyStepText { get; set; } = "扇だけ踏む";
 
     public bool MagicChargeEnabled { get; set; } = true;
 
@@ -74,6 +74,10 @@ public sealed class Configuration : IPluginConfiguration
 
     public string GrandCrossEnemyNameKeyword { get; set; } = "ネオエクスデス";
 
+    public bool GrandCrossChaosFilterByEnemyName { get; set; } = true;
+
+    public string GrandCrossChaosEnemyNameKeyword { get; set; } = "カオス";
+
     public float GrandCrossWorldHeightOffset { get; set; } = 3.25f;
 
     public float GrandCrossScreenOffsetX { get; set; } = 0.0f;
@@ -90,25 +94,50 @@ public sealed class Configuration : IPluginConfiguration
 
     public string GrandCrossSeparator { get; set; } = "_";
 
+    // 旧仕様互換用。現在の表示ロジックでは使用しません。
     public string GrandCrossFakePrefix { get; set; } = "偽";
 
     public string GrandCrossTestText { get; set; } = "GrandCross テスト表示";
 
-    public string GrandCrossAllaganFieldText { get; set; } = "アラガンフィールド";
+    public string GrandCrossAllaganFieldTrueText { get; set; } = "アラガンフィールド";
 
-    public string GrandCrossDeathBeyondText { get; set; } = "死の超越";
+    public string GrandCrossAllaganFieldFakeText { get; set; } = "偽アラガンフィールド";
 
-    public string GrandCrossLivingWoundText { get; set; } = "生者の傷";
+    public string GrandCrossDeathBeyondTrueText { get; set; } = "死の超越";
 
-    public string GrandCrossDeadWoundText { get; set; } = "死者の傷";
+    public string GrandCrossDeathBeyondFakeText { get; set; } = "偽死の超越";
 
-    public string GrandCrossCurseShriekText { get; set; } = "呪詛の叫声";
+    public string GrandCrossLivingWoundTrueText { get; set; } = "生者の傷";
 
-    public string GrandCrossForkedLightningText { get; set; } = "フォークライトニング";
+    public string GrandCrossLivingWoundFakeText { get; set; } = "偽生者の傷";
 
-    public string GrandCrossWaterCompressionText { get; set; } = "水属性圧縮";
+    public string GrandCrossDeadWoundTrueText { get; set; } = "死者の傷";
 
-    public string GrandCrossAccelerationBombText { get; set; } = "加速度爆弾";
+    public string GrandCrossDeadWoundFakeText { get; set; } = "偽死者の傷";
+
+    public string GrandCrossCurseShriekTrueText { get; set; } = "呪詛の叫声";
+
+    public string GrandCrossCurseShriekFakeText { get; set; } = "偽呪詛の叫声";
+
+    public string GrandCrossForkedLightningTrueText { get; set; } = "フォークライトニング";
+
+    public string GrandCrossForkedLightningFakeText { get; set; } = "偽フォークライトニング";
+
+    public string GrandCrossWaterCompressionTrueText { get; set; } = "水属性圧縮";
+
+    public string GrandCrossWaterCompressionFakeText { get; set; } = "偽水属性圧縮";
+
+    public string GrandCrossAccelerationBombTrueText { get; set; } = "加速度爆弾";
+
+    public string GrandCrossAccelerationBombFakeText { get; set; } = "偽加速度爆弾";
+
+    public string GrandCrossFireFakeText { get; set; } = "偽ほのお";
+
+    public string GrandCrossFireTrueText { get; set; } = "ほのお";
+
+    public string GrandCrossTsunamiFakeText { get; set; } = "偽つなみ";
+
+    public string GrandCrossTsunamiTrueText { get; set; } = "つなみ";
 
     public List<ActionTextSetting> ActionTextSettings { get; set; } = new();
 

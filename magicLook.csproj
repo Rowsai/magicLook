@@ -1,11 +1,11 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.0.0.1</Version>
+    <Version>0.0.0.4</Version>
     <Authors>Rowsai</Authors>
     <Company>Rowsai</Company>
-    <Product>magicLock</Product>
+    <Product>magicLook</Product>
     <AssemblyName>magicLook</AssemblyName>
-    <RootNamespace>MagicLook</RootNamespace>
+    <RootNamespace>magicLook</RootNamespace>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -13,6 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="magicLook.json" />
+    <Content Include="magicLook.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>
