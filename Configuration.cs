@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Configuration;
 using Dalamud.Plugin;
 
@@ -44,17 +45,48 @@ public sealed class Configuration : IPluginConfiguration
 
     public bool MagicChargeEnabled { get; set; } = true;
 
+    // 旧仕様互換用。現在のmagicCharge画面固定表示では使用しません。
     public float MagicChargeWorldHeightOffset { get; set; } = 2.85f;
 
+    // 旧仕様互換用。現在のmagicCharge画面固定表示では使用しません。
     public float MagicChargeScreenOffsetX { get; set; } = 0.0f;
 
+    // 旧仕様互換用。現在のmagicCharge画面固定表示では使用しません。
     public float MagicChargeScreenOffsetY { get; set; } = -75.0f;
+
+    public float MagicChargeScreenPositionX { get; set; } = 960.0f;
+
+    public float MagicChargeScreenPositionY { get; set; } = 300.0f;
 
     public float MagicChargeFontSize { get; set; } = 28.0f;
 
     public float MagicChargeDisplaySeconds { get; set; } = 3.0f;
 
+    public float MagicChargeFadeInSeconds { get; set; } = 0.5f;
+
     public bool MagicChargeDrawBackground { get; set; } = true;
+
+    public float MagicChargeTextColorR { get; set; } = 0.35f;
+
+    public float MagicChargeTextColorG { get; set; } = 0.90f;
+
+    public float MagicChargeTextColorB { get; set; } = 1.00f;
+
+    public float MagicChargeTextColorA { get; set; } = 1.00f;
+
+    public bool MagicChargeUseOutline { get; set; } = true;
+
+    public float MagicChargeOutlineThickness { get; set; } = 2.0f;
+
+    public float MagicChargeOutlineColorR { get; set; } = 0.0f;
+
+    public float MagicChargeOutlineColorG { get; set; } = 0.0f;
+
+    public float MagicChargeOutlineColorB { get; set; } = 0.0f;
+
+    public float MagicChargeOutlineColorA { get; set; } = 1.0f;
+
+    public int MagicChargeFontPreset { get; set; } = 0;
 
     public string MagicChargeTestText { get; set; } = "magicCharge テスト表示";
 
@@ -78,17 +110,48 @@ public sealed class Configuration : IPluginConfiguration
 
     public string GrandCrossChaosEnemyNameKeyword { get; set; } = "カオス";
 
+    // 0 = プレイヤー頭上, 1 = 画面固定位置
+    public int GrandCrossDisplayMode { get; set; } = 0;
+
     public float GrandCrossWorldHeightOffset { get; set; } = 3.25f;
 
     public float GrandCrossScreenOffsetX { get; set; } = 0.0f;
 
     public float GrandCrossScreenOffsetY { get; set; } = -130.0f;
 
+    public float GrandCrossScreenPositionX { get; set; } = 960.0f;
+
+    public float GrandCrossScreenPositionY { get; set; } = 360.0f;
+
     public float GrandCrossFontSize { get; set; } = 28.0f;
 
     public float GrandCrossDisplaySeconds { get; set; } = 5.0f;
 
+    public float GrandCrossFadeInSeconds { get; set; } = 0.5f;
+
     public bool GrandCrossDrawBackground { get; set; } = true;
+
+    public float GrandCrossTextColorR { get; set; } = 1.00f;
+
+    public float GrandCrossTextColorG { get; set; } = 0.45f;
+
+    public float GrandCrossTextColorB { get; set; } = 0.95f;
+
+    public float GrandCrossTextColorA { get; set; } = 1.00f;
+
+    public bool GrandCrossUseOutline { get; set; } = true;
+
+    public float GrandCrossOutlineThickness { get; set; } = 2.0f;
+
+    public float GrandCrossOutlineColorR { get; set; } = 0.0f;
+
+    public float GrandCrossOutlineColorG { get; set; } = 0.0f;
+
+    public float GrandCrossOutlineColorB { get; set; } = 0.0f;
+
+    public float GrandCrossOutlineColorA { get; set; } = 1.0f;
+
+    public int GrandCrossFontPreset { get; set; } = 0;
 
     public float GrandCrossStatusCaptureSeconds { get; set; } = 3.0f;
 
@@ -143,39 +206,60 @@ public sealed class Configuration : IPluginConfiguration
 
     public void EnsureDefaults()
     {
-        if (this.ActionTextSettings.Count > 0)
+        this.ActionTextSettings ??= new List<ActionTextSetting>();
+
+        this.EnsureActionTextSetting(
+            "ひろがるブリザガ / ActionId: 47768",
+            new List<uint> { 47768 },
+            "ひろがるブリザガ 47768"
+        );
+
+        this.EnsureActionTextSetting(
+            "ひろがるブリザガ / ActionId: 47771, 47774",
+            new List<uint> { 47771, 47774 },
+            "ひろがるブリザガ 47771 / 47774"
+        );
+
+        this.EnsureActionTextSetting(
+            "もりもりサンダガ / ActionId: 47775",
+            new List<uint> { 47775 },
+            "もりもりサンダガ 47775"
+        );
+
+        this.EnsureActionTextSetting(
+            "もりもりサンダガ / ActionId: 47776, 47777",
+            new List<uint> { 47776, 47777 },
+            "もりもりサンダガ 47776 / 47777"
+        );
+    }
+
+    private void EnsureActionTextSetting(string label, List<uint> actionIds, string defaultText)
+    {
+        var existing = this.ActionTextSettings.FirstOrDefault(setting =>
+            setting.ActionIds.Count == actionIds.Count &&
+            actionIds.All(id => setting.ActionIds.Contains(id))
+        );
+
+        if (existing != null)
+        {
+            if (string.IsNullOrWhiteSpace(existing.Label))
+                existing.Label = label;
+
+            if (existing.ActionIds.Count == 0)
+                existing.ActionIds = actionIds;
+
+            if (string.IsNullOrWhiteSpace(existing.Text))
+                existing.Text = defaultText;
+
             return;
+        }
 
         this.ActionTextSettings.Add(new ActionTextSetting
         {
             Enabled = true,
-            Label = "ひろがるブリザガ / ActionId: 47768",
-            ActionIds = new List<uint> { 47768 },
-            Text = "ひろがるブリザガ 47768"
-        });
-
-        this.ActionTextSettings.Add(new ActionTextSetting
-        {
-            Enabled = true,
-            Label = "ひろがるブリザガ / ActionId: 47771, 47774",
-            ActionIds = new List<uint> { 47771, 47774 },
-            Text = "ひろがるブリザガ 47771 / 47774"
-        });
-
-        this.ActionTextSettings.Add(new ActionTextSetting
-        {
-            Enabled = true,
-            Label = "もりもりサンダガ / ActionId: 47775",
-            ActionIds = new List<uint> { 47775 },
-            Text = "もりもりサンダガ 47775"
-        });
-
-        this.ActionTextSettings.Add(new ActionTextSetting
-        {
-            Enabled = true,
-            Label = "もりもりサンダガ / ActionId: 47776, 47777",
-            ActionIds = new List<uint> { 47776, 47777 },
-            Text = "もりもりサンダガ 47776 / 47777"
+            Label = label,
+            ActionIds = actionIds,
+            Text = defaultText
         });
     }
 

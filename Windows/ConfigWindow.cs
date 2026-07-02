@@ -141,6 +141,11 @@ internal sealed class ConfigWindow : Window
 
         if (ImGui.CollapsingHeader("magicLook アクション別 表示テキスト", ImGuiTreeNodeFlags.DefaultOpen))
         {
+            if (this.configuration.ActionTextSettings.Count == 0)
+            {
+                ImGui.TextUnformatted("magicLookのActionTextSettingsが空です。設定初期化に失敗している可能性があります。");
+            }
+
             for (var i = 0; i < this.configuration.ActionTextSettings.Count; i++)
             {
                 var setting = this.configuration.ActionTextSettings[i];
@@ -189,13 +194,13 @@ internal sealed class ConfigWindow : Window
             changed = true;
         }
 
-        if (ImGui.CollapsingHeader("magicCharge 表示位置", ImGuiTreeNodeFlags.DefaultOpen))
+        if (ImGui.CollapsingHeader("magicCharge 表示設定", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            changed |= DrawFloatAndAssign("高さ補正 / World Y##Charge", this.configuration.MagicChargeWorldHeightOffset, v => this.configuration.MagicChargeWorldHeightOffset = v, 0.05f, 0.25f);
-            changed |= DrawFloatAndAssign("横位置補正 / Screen X##Charge", this.configuration.MagicChargeScreenOffsetX, v => this.configuration.MagicChargeScreenOffsetX = v, 1.0f, 10.0f);
-            changed |= DrawFloatAndAssign("縦位置補正 / Screen Y##Charge", this.configuration.MagicChargeScreenOffsetY, v => this.configuration.MagicChargeScreenOffsetY = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("画面位置 X##ChargeScreenPosX", this.configuration.MagicChargeScreenPositionX, v => this.configuration.MagicChargeScreenPositionX = v, 1.0f, 10.0f);
+            changed |= DrawFloatAndAssign("画面位置 Y##ChargeScreenPosY", this.configuration.MagicChargeScreenPositionY, v => this.configuration.MagicChargeScreenPositionY = v, 1.0f, 10.0f);
             changed |= DrawFloatAndAssign("文字サイズ##Charge", this.configuration.MagicChargeFontSize, v => this.configuration.MagicChargeFontSize = Math.Max(8.0f, v), 1.0f, 5.0f);
             changed |= DrawFloatAndAssign("表示秒数##Charge", this.configuration.MagicChargeDisplaySeconds, v => this.configuration.MagicChargeDisplaySeconds = Math.Max(0.1f, v), 0.1f, 0.5f);
+            changed |= DrawFloatAndAssign("フェードイン秒数##ChargeFadeIn", this.configuration.MagicChargeFadeInSeconds, v => this.configuration.MagicChargeFadeInSeconds = Math.Max(0.0f, v), 0.05f, 0.25f);
 
             var drawBackground = this.configuration.MagicChargeDrawBackground;
             if (ImGui.Checkbox("背景を表示する##MagicChargeBg", ref drawBackground))
@@ -203,6 +208,72 @@ internal sealed class ConfigWindow : Window
                 this.configuration.MagicChargeDrawBackground = drawBackground;
                 changed = true;
             }
+
+            var color = new Vector4(
+                this.configuration.MagicChargeTextColorR,
+                this.configuration.MagicChargeTextColorG,
+                this.configuration.MagicChargeTextColorB,
+                this.configuration.MagicChargeTextColorA
+            );
+
+            if (ImGui.ColorEdit4("文字色##MagicChargeTextColor", ref color))
+            {
+                this.configuration.MagicChargeTextColorR = color.X;
+                this.configuration.MagicChargeTextColorG = color.Y;
+                this.configuration.MagicChargeTextColorB = color.Z;
+                this.configuration.MagicChargeTextColorA = color.W;
+                changed = true;
+            }
+
+            ImGui.Separator();
+
+            var useOutline = this.configuration.MagicChargeUseOutline;
+            if (ImGui.Checkbox("文字の縁取りを有効化##MagicChargeOutline", ref useOutline))
+            {
+                this.configuration.MagicChargeUseOutline = useOutline;
+                changed = true;
+            }
+
+            changed |= DrawFloatAndAssign(
+                "縁取り太さ##MagicChargeOutlineThickness",
+                this.configuration.MagicChargeOutlineThickness,
+                v => this.configuration.MagicChargeOutlineThickness = Math.Max(0.0f, v),
+                0.1f,
+                0.5f
+            );
+
+            var outlineColor = new Vector4(
+                this.configuration.MagicChargeOutlineColorR,
+                this.configuration.MagicChargeOutlineColorG,
+                this.configuration.MagicChargeOutlineColorB,
+                this.configuration.MagicChargeOutlineColorA
+            );
+
+            if (ImGui.ColorEdit4("縁取り色##MagicChargeOutlineColor", ref outlineColor))
+            {
+                this.configuration.MagicChargeOutlineColorR = outlineColor.X;
+                this.configuration.MagicChargeOutlineColorG = outlineColor.Y;
+                this.configuration.MagicChargeOutlineColorB = outlineColor.Z;
+                this.configuration.MagicChargeOutlineColorA = outlineColor.W;
+                changed = true;
+            }
+
+            var fontPreset = this.configuration.MagicChargeFontPreset;
+            var fontItems = new[]
+            {
+                "デフォルトくっきり",
+                "大きめくっきり",
+                "強調くっきり",
+                "小さめくっきり"
+            };
+
+            if (ImGui.Combo("表示プリセット##MagicChargeFontPreset", ref fontPreset, fontItems, fontItems.Length))
+            {
+                this.configuration.MagicChargeFontPreset = Math.Clamp(fontPreset, 0, fontItems.Length - 1);
+                changed = true;
+            }
+
+            ImGui.TextUnformatted("※ 実フォント切替ではなく、にじみを抑える安全な表示プリセットです。");
         }
 
         if (ImGui.CollapsingHeader("magicCharge 判定結果 表示テキスト", ImGuiTreeNodeFlags.DefaultOpen))
@@ -212,14 +283,22 @@ internal sealed class ConfigWindow : Window
             changed |= DrawInputTextAndAssign("47771/47774 + 47775", this.configuration.MagicChargeFanStepLineNoStepText, v => this.configuration.MagicChargeFanStepLineNoStepText = v);
             changed |= DrawInputTextAndAssign("47771/47774 + 47776/47777", this.configuration.MagicChargeFanStepLineStepText, v => this.configuration.MagicChargeFanStepLineStepText = v);
             changed |= DrawInputTextAndAssign("判定不能時", this.configuration.MagicChargeUnknownText, v => this.configuration.MagicChargeUnknownText = v);
+
+            ImGui.TextUnformatted("※ 現在、マジックアウト後の最終判定仕様は保留中です。");
         }
 
         if (ImGui.CollapsingHeader("magicCharge テストモード", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            changed |= DrawInputTextAndAssign("テスト表示文字", this.configuration.MagicChargeTestText, v => this.configuration.MagicChargeTestText = v);
+            changed |= DrawInputTextAndAssign(
+                "テスト表示文字",
+                this.configuration.MagicChargeTestText,
+                v => this.configuration.MagicChargeTestText = v
+            );
 
-            if (ImGui.Button("magicCharge位置にテスト表示"))
+            if (ImGui.Button("画面固定位置にテスト表示"))
                 this.plugin.TestChargeText(this.configuration.MagicChargeTestText);
+
+            ImGui.TextUnformatted("※ 画面位置・文字色・縁取り・表示プリセット・フェードイン秒数・背景設定を反映します。");
         }
 
         if (ImGui.CollapsingHeader("magicCharge チャージ状況リスト", ImGuiTreeNodeFlags.DefaultOpen))
@@ -278,12 +357,161 @@ internal sealed class ConfigWindow : Window
 
         if (ImGui.CollapsingHeader("GrandCross 表示位置", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            changed |= DrawFloatAndAssign("高さ補正 / World Y##GrandCross", this.configuration.GrandCrossWorldHeightOffset, v => this.configuration.GrandCrossWorldHeightOffset = v, 0.05f, 0.25f);
-            changed |= DrawFloatAndAssign("横位置補正 / Screen X##GrandCross", this.configuration.GrandCrossScreenOffsetX, v => this.configuration.GrandCrossScreenOffsetX = v, 1.0f, 10.0f);
-            changed |= DrawFloatAndAssign("縦位置補正 / Screen Y##GrandCross", this.configuration.GrandCrossScreenOffsetY, v => this.configuration.GrandCrossScreenOffsetY = v, 1.0f, 10.0f);
-            changed |= DrawFloatAndAssign("文字サイズ##GrandCross", this.configuration.GrandCrossFontSize, v => this.configuration.GrandCrossFontSize = Math.Max(8.0f, v), 1.0f, 5.0f);
-            changed |= DrawFloatAndAssign("表示秒数##GrandCross", this.configuration.GrandCrossDisplaySeconds, v => this.configuration.GrandCrossDisplaySeconds = Math.Max(0.1f, v), 0.1f, 0.5f);
-            changed |= DrawFloatAndAssign("ステータス取得待機秒数##GrandCross", this.configuration.GrandCrossStatusCaptureSeconds, v => this.configuration.GrandCrossStatusCaptureSeconds = Math.Max(0.1f, v), 0.1f, 0.5f);
+            var displayMode = this.configuration.GrandCrossDisplayMode;
+            var displayModeItems = new[]
+            {
+                "プレイヤー頭上に表示",
+                "画面固定位置に表示"
+            };
+
+            if (ImGui.Combo("表示先##GrandCrossDisplayMode", ref displayMode, displayModeItems, displayModeItems.Length))
+            {
+                this.configuration.GrandCrossDisplayMode = Math.Clamp(displayMode, 0, displayModeItems.Length - 1);
+                changed = true;
+            }
+
+            ImGui.Separator();
+
+            if (this.configuration.GrandCrossDisplayMode == 0)
+            {
+                ImGui.TextUnformatted("プレイヤー頭上に表示する設定");
+
+                changed |= DrawFloatAndAssign(
+                    "高さ補正 / World Y##GrandCross",
+                    this.configuration.GrandCrossWorldHeightOffset,
+                    v => this.configuration.GrandCrossWorldHeightOffset = v,
+                    0.05f,
+                    0.25f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "横位置補正 / Screen X##GrandCross",
+                    this.configuration.GrandCrossScreenOffsetX,
+                    v => this.configuration.GrandCrossScreenOffsetX = v,
+                    1.0f,
+                    10.0f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "縦位置補正 / Screen Y##GrandCross",
+                    this.configuration.GrandCrossScreenOffsetY,
+                    v => this.configuration.GrandCrossScreenOffsetY = v,
+                    1.0f,
+                    10.0f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "文字サイズ##GrandCross",
+                    this.configuration.GrandCrossFontSize,
+                    v => this.configuration.GrandCrossFontSize = Math.Max(8.0f, v),
+                    1.0f,
+                    5.0f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "表示秒数##GrandCross",
+                    this.configuration.GrandCrossDisplaySeconds,
+                    v => this.configuration.GrandCrossDisplaySeconds = Math.Max(0.1f, v),
+                    0.1f,
+                    0.5f
+                );
+
+                ImGui.TextUnformatted("※ 現在と同じ、プレイヤー頭上への表示です。");
+            }
+            else
+            {
+                ImGui.TextUnformatted("画面固定位置に表示する設定");
+
+                changed |= DrawFloatAndAssign(
+                    "画面位置 X##GrandCrossScreenPosX",
+                    this.configuration.GrandCrossScreenPositionX,
+                    v => this.configuration.GrandCrossScreenPositionX = v,
+                    1.0f,
+                    10.0f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "画面位置 Y##GrandCrossScreenPosY",
+                    this.configuration.GrandCrossScreenPositionY,
+                    v => this.configuration.GrandCrossScreenPositionY = v,
+                    1.0f,
+                    10.0f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "文字サイズ##GrandCrossFixed",
+                    this.configuration.GrandCrossFontSize,
+                    v => this.configuration.GrandCrossFontSize = Math.Max(8.0f, v),
+                    1.0f,
+                    5.0f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "表示秒数##GrandCrossFixed",
+                    this.configuration.GrandCrossDisplaySeconds,
+                    v => this.configuration.GrandCrossDisplaySeconds = Math.Max(0.1f, v),
+                    0.1f,
+                    0.5f
+                );
+
+                changed |= DrawFloatAndAssign(
+                    "フェードイン秒数##GrandCrossFadeIn",
+                    this.configuration.GrandCrossFadeInSeconds,
+                    v => this.configuration.GrandCrossFadeInSeconds = Math.Max(0.0f, v),
+                    0.05f,
+                    0.25f
+                );
+
+                var useOutline = this.configuration.GrandCrossUseOutline;
+                if (ImGui.Checkbox("文字の縁取りを有効化##GrandCrossOutline", ref useOutline))
+                {
+                    this.configuration.GrandCrossUseOutline = useOutline;
+                    changed = true;
+                }
+
+                changed |= DrawFloatAndAssign(
+                    "縁取り太さ##GrandCrossOutlineThickness",
+                    this.configuration.GrandCrossOutlineThickness,
+                    v => this.configuration.GrandCrossOutlineThickness = Math.Max(0.0f, v),
+                    0.1f,
+                    0.5f
+                );
+
+                var outlineColor = new Vector4(
+                    this.configuration.GrandCrossOutlineColorR,
+                    this.configuration.GrandCrossOutlineColorG,
+                    this.configuration.GrandCrossOutlineColorB,
+                    this.configuration.GrandCrossOutlineColorA
+                );
+
+                if (ImGui.ColorEdit4("縁取り色##GrandCrossOutlineColor", ref outlineColor))
+                {
+                    this.configuration.GrandCrossOutlineColorR = outlineColor.X;
+                    this.configuration.GrandCrossOutlineColorG = outlineColor.Y;
+                    this.configuration.GrandCrossOutlineColorB = outlineColor.Z;
+                    this.configuration.GrandCrossOutlineColorA = outlineColor.W;
+                    changed = true;
+                }
+
+                var fontPreset = this.configuration.GrandCrossFontPreset;
+                var fontItems = new[]
+                {
+                    "デフォルトくっきり",
+                    "大きめくっきり",
+                    "強調くっきり",
+                    "小さめくっきり"
+                };
+
+                if (ImGui.Combo("表示プリセット##GrandCrossFontPreset", ref fontPreset, fontItems, fontItems.Length))
+                {
+                    this.configuration.GrandCrossFontPreset = Math.Clamp(fontPreset, 0, fontItems.Length - 1);
+                    changed = true;
+                }
+
+                ImGui.TextUnformatted("※ magicChargeと同じ、画面固定位置への表示です。");
+            }
+
+            ImGui.Separator();
 
             var drawBackground = this.configuration.GrandCrossDrawBackground;
             if (ImGui.Checkbox("背景を表示する##GrandCrossBg", ref drawBackground))
@@ -291,6 +519,30 @@ internal sealed class ConfigWindow : Window
                 this.configuration.GrandCrossDrawBackground = drawBackground;
                 changed = true;
             }
+
+            var grandCrossTextColor = new Vector4(
+                this.configuration.GrandCrossTextColorR,
+                this.configuration.GrandCrossTextColorG,
+                this.configuration.GrandCrossTextColorB,
+                this.configuration.GrandCrossTextColorA
+            );
+
+            if (ImGui.ColorEdit4("文字色##GrandCrossTextColor", ref grandCrossTextColor))
+            {
+                this.configuration.GrandCrossTextColorR = grandCrossTextColor.X;
+                this.configuration.GrandCrossTextColorG = grandCrossTextColor.Y;
+                this.configuration.GrandCrossTextColorB = grandCrossTextColor.Z;
+                this.configuration.GrandCrossTextColorA = grandCrossTextColor.W;
+                changed = true;
+            }
+
+            changed |= DrawFloatAndAssign(
+                "ステータス取得待機秒数##GrandCross",
+                this.configuration.GrandCrossStatusCaptureSeconds,
+                v => this.configuration.GrandCrossStatusCaptureSeconds = Math.Max(0.1f, v),
+                0.1f,
+                0.5f
+            );
         }
 
         if (ImGui.CollapsingHeader("GrandCross 表示テキスト設定", ImGuiTreeNodeFlags.DefaultOpen))
@@ -339,6 +591,8 @@ internal sealed class ConfigWindow : Window
 
             if (ImGui.Button("GrandCross位置にテスト表示"))
                 this.plugin.TestGrandCrossText(this.configuration.GrandCrossTestText);
+
+            ImGui.TextUnformatted("※ 表示先・画面位置・文字色・縁取り・表示プリセット・フェードイン設定を反映します。");
         }
 
         if (ImGui.CollapsingHeader("GrandCross 保持状況リスト", ImGuiTreeNodeFlags.DefaultOpen))

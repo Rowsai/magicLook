@@ -33,16 +33,18 @@ public sealed class Plugin : IDalamudPlugin
     private DateTime activeLockUntil = DateTime.MinValue;
 
     private string activeChargeText = string.Empty;
+    private DateTime activeChargeStartedAt = DateTime.MinValue;
     private DateTime activeChargeUntil = DateTime.MinValue;
 
     private string activeGrandCrossText = string.Empty;
+    private DateTime activeGrandCrossStartedAt = DateTime.MinValue;
     private DateTime activeGrandCrossUntil = DateTime.MinValue;
 
     private HashSet<string> previousCastKeys = new();
 
-    private bool waitingForMagicChargeResult;
-    private bool magicChargeCycleCompleted;
-    private readonly List<MagicChargeKind> magicChargeSlots = new();
+    private bool magicChargeActive;
+    private MagicChargeStatusState chargeThunderState = MagicChargeStatusState.Unknown;
+    private MagicChargeStatusState chargeBlizzardState = MagicChargeStatusState.Unknown;
 
     private bool grandCrossCasting;
     private bool grandCrossCycleCompleted;
@@ -133,8 +135,7 @@ public sealed class Plugin : IDalamudPlugin
 
     internal void TestChargeText(string text)
     {
-        this.activeChargeText = text;
-        this.activeChargeUntil = DateTime.Now.AddSeconds(this.configuration.MagicChargeDisplaySeconds);
+        this.SetMagicChargeScreenText(text);
 
         this.LastMagicChargeEvent = "テスト";
         this.LastMagicChargeResult = text;
@@ -142,8 +143,7 @@ public sealed class Plugin : IDalamudPlugin
 
     internal void TestGrandCrossText(string text)
     {
-        this.activeGrandCrossText = text;
-        this.activeGrandCrossUntil = DateTime.Now.AddSeconds(this.configuration.GrandCrossDisplaySeconds);
+        this.SetGrandCrossText(text, resetFade: true);
 
         this.LastGrandCrossEvent = "テスト";
         this.LastGrandCrossResult = text;
@@ -151,9 +151,13 @@ public sealed class Plugin : IDalamudPlugin
 
     internal void ResetMagicChargeState()
     {
-        this.waitingForMagicChargeResult = false;
-        this.magicChargeCycleCompleted = false;
-        this.magicChargeSlots.Clear();
+        this.magicChargeActive = false;
+        this.chargeThunderState = MagicChargeStatusState.Unknown;
+        this.chargeBlizzardState = MagicChargeStatusState.Unknown;
+
+        this.activeChargeText = string.Empty;
+        this.activeChargeStartedAt = DateTime.MinValue;
+        this.activeChargeUntil = DateTime.MinValue;
 
         this.LastMagicChargeEvent = "リセット";
         this.LastMagicChargeResult = string.Empty;
@@ -175,6 +179,7 @@ public sealed class Plugin : IDalamudPlugin
         this.grandCrossCapturedCastCount = 0;
 
         this.activeGrandCrossText = string.Empty;
+        this.activeGrandCrossStartedAt = DateTime.MinValue;
         this.activeGrandCrossUntil = DateTime.MinValue;
 
         this.LastGrandCrossEvent = "リセット";
@@ -185,19 +190,11 @@ public sealed class Plugin : IDalamudPlugin
     {
         var result = new List<string>();
 
-        result.Add($"待機状態: {(this.waitingForMagicChargeResult ? "マジックチャージ後のAction待ち" : "待機なし")}");
-        result.Add($"取得数: {this.magicChargeSlots.Count} / 2");
-
-        var slot1 = this.magicChargeSlots.Count >= 1
-            ? this.GetMagicChargeKindDisplayName(this.magicChargeSlots[0])
-            : "未取得";
-
-        var slot2 = this.magicChargeSlots.Count >= 2
-            ? this.GetMagicChargeKindDisplayName(this.magicChargeSlots[1])
-            : "未取得";
-
-        result.Add($"1回目: {slot1}");
-        result.Add($"2回目: {slot2}");
+        result.Add($"チャージ監視状態: {(this.magicChargeActive ? "監視中" : "待機なし")}");
+        result.Add("対象Status: 1485 / チャージ：サンダガ, 1484 / チャージ：ブリザガ");
+        result.Add("判定条件: Param 0=真, Param 0以外=偽");
+        result.Add($"チャージ：サンダガ: {this.GetMagicChargeStatusStateDisplayName(this.chargeThunderState)}");
+        result.Add($"チャージ：ブリザガ: {this.GetMagicChargeStatusStateDisplayName(this.chargeBlizzardState)}");
 
         if (!string.IsNullOrWhiteSpace(this.LastMagicChargeEvent))
             result.Add($"直近イベント: {this.LastMagicChargeEvent}");
@@ -233,7 +230,7 @@ public sealed class Plugin : IDalamudPlugin
             for (var i = 0; i < activeItems.Count; i++)
             {
                 var item = activeItems[i];
-                result.Add($"{i + 1}: {item.DisplayText} / 残り {item.RemainingTime:0.0}秒");
+                result.Add($"{i + 1}: {this.FormatGrandCrossDisplayItem(item)}");
             }
         }
 
@@ -330,27 +327,84 @@ public sealed class Plugin : IDalamudPlugin
             new Vector4(1.0f, 0.95f, 0.25f, 1.0f)
         );
 
-        this.DrawOverheadText(
+        this.DrawScreenText(
             this.activeChargeText,
+            this.activeChargeStartedAt,
             this.activeChargeUntil,
-            this.configuration.MagicChargeWorldHeightOffset,
-            this.configuration.MagicChargeScreenOffsetX,
-            this.configuration.MagicChargeScreenOffsetY,
-            this.configuration.MagicChargeFontSize,
+            this.configuration.MagicChargeScreenPositionX,
+            this.configuration.MagicChargeScreenPositionY,
+            this.GetMagicChargePresetFontSize(),
             this.configuration.MagicChargeDrawBackground,
-            new Vector4(0.35f, 0.9f, 1.0f, 1.0f)
+            new Vector4(
+                this.configuration.MagicChargeTextColorR,
+                this.configuration.MagicChargeTextColorG,
+                this.configuration.MagicChargeTextColorB,
+                this.configuration.MagicChargeTextColorA
+            ),
+            this.configuration.MagicChargeFadeInSeconds,
+            this.configuration.MagicChargeUseOutline,
+            this.GetMagicChargePresetOutlineThickness(),
+            new Vector4(
+                this.configuration.MagicChargeOutlineColorR,
+                this.configuration.MagicChargeOutlineColorG,
+                this.configuration.MagicChargeOutlineColorB,
+                this.configuration.MagicChargeOutlineColorA
+            ),
+            this.configuration.MagicChargeFontPreset
         );
 
-        this.DrawOverheadText(
-            this.activeGrandCrossText,
-            this.activeGrandCrossUntil,
-            this.configuration.GrandCrossWorldHeightOffset,
-            this.configuration.GrandCrossScreenOffsetX,
-            this.configuration.GrandCrossScreenOffsetY,
-            this.configuration.GrandCrossFontSize,
-            this.configuration.GrandCrossDrawBackground,
-            new Vector4(1.0f, 0.45f, 0.95f, 1.0f)
-        );
+        if (this.configuration.GrandCrossDisplayMode == 1)
+        {
+            this.DrawScreenText(
+                this.activeGrandCrossText,
+                this.activeGrandCrossStartedAt,
+                this.activeGrandCrossUntil,
+                this.configuration.GrandCrossScreenPositionX,
+                this.configuration.GrandCrossScreenPositionY,
+                this.GetGrandCrossPresetFontSize(),
+
+                // 画面固定位置表示では、文字が背景に埋もれるため強制的に背景OFF
+                false,
+
+                new Vector4(
+                    this.configuration.GrandCrossTextColorR,
+                    this.configuration.GrandCrossTextColorG,
+                    this.configuration.GrandCrossTextColorB,
+                    this.configuration.GrandCrossTextColorA
+                ),
+
+                // 画面固定位置表示ではフェードインを強制 0.15s
+                0.15f,
+
+                this.configuration.GrandCrossUseOutline,
+                this.GetGrandCrossPresetOutlineThickness(),
+                new Vector4(
+                    this.configuration.GrandCrossOutlineColorR,
+                    this.configuration.GrandCrossOutlineColorG,
+                    this.configuration.GrandCrossOutlineColorB,
+                    this.configuration.GrandCrossOutlineColorA
+                ),
+                this.configuration.GrandCrossFontPreset
+            );
+        }
+        else
+        {
+            this.DrawOverheadText(
+                this.activeGrandCrossText,
+                this.activeGrandCrossUntil,
+                this.configuration.GrandCrossWorldHeightOffset,
+                this.configuration.GrandCrossScreenOffsetX,
+                this.configuration.GrandCrossScreenOffsetY,
+                this.configuration.GrandCrossFontSize,
+                this.configuration.GrandCrossDrawBackground,
+                new Vector4(
+                    this.configuration.GrandCrossTextColorR,
+                    this.configuration.GrandCrossTextColorG,
+                    this.configuration.GrandCrossTextColorB,
+                    this.configuration.GrandCrossTextColorA
+                )
+            );
+        }
     }
 
     private void OnFrameworkUpdate(IFramework _)
@@ -524,117 +578,186 @@ public sealed class Plugin : IDalamudPlugin
 
             if (cast.ActionId == 47781)
             {
-                this.OnMagicOut(cast);
+                this.OnMagicOutDeferred(cast);
                 continue;
             }
-
-            var chargeKind = this.ToMagicChargeKind(cast.ActionId);
-            if (chargeKind == MagicChargeKind.None)
-                continue;
-
-            this.OnMagicChargeResultAction(cast, chargeKind);
         }
+
+        if (this.magicChargeActive)
+            this.UpdateMagicChargeStatusFromKefka();
     }
 
     private void OnMagicChargeStarted(CastEvent cast)
     {
-        if (this.magicChargeCycleCompleted || this.magicChargeSlots.Count >= 2)
-        {
-            this.magicChargeSlots.Clear();
-            this.magicChargeCycleCompleted = false;
-        }
+        this.magicChargeActive = true;
+        this.chargeThunderState = MagicChargeStatusState.Unknown;
+        this.chargeBlizzardState = MagicChargeStatusState.Unknown;
 
-        this.waitingForMagicChargeResult = true;
+        this.activeChargeText = string.Empty;
+        this.activeChargeStartedAt = DateTime.MinValue;
+        this.activeChargeUntil = DateTime.MinValue;
+
         this.LastMagicChargeEvent = $"マジックチャージ検出: {cast.CasterName} / 47780";
+        this.LastMagicChargeResult = string.Empty;
     }
 
-    private void OnMagicChargeResultAction(CastEvent cast, MagicChargeKind chargeKind)
+    private void OnMagicOutDeferred(CastEvent cast)
     {
-        if (!this.waitingForMagicChargeResult)
-            return;
-
-        if (this.magicChargeSlots.Count < 2)
-        {
-            this.magicChargeSlots.Add(chargeKind);
-        }
-        else
-        {
-            this.magicChargeSlots.RemoveAt(0);
-            this.magicChargeSlots.Add(chargeKind);
-        }
-
-        this.waitingForMagicChargeResult = false;
-
-        this.LastMagicChargeEvent =
-            $"チャージAction保持: {cast.CasterName} / {cast.ActionId} / {this.GetMagicChargeKindDisplayName(chargeKind)}";
-    }
-
-    private void OnMagicOut(CastEvent cast)
-    {
-        var resultText = this.GetMagicChargeResultText();
-
-        if (string.IsNullOrWhiteSpace(resultText))
-            resultText = this.configuration.MagicChargeUnknownText;
-
-        this.activeChargeText = resultText;
-        this.activeChargeUntil = DateTime.Now.AddSeconds(this.configuration.MagicChargeDisplaySeconds);
-
-        this.waitingForMagicChargeResult = false;
-        this.magicChargeCycleCompleted = true;
+        this.magicChargeActive = false;
 
         this.LastMagicChargeEvent = $"マジックアウト検出: {cast.CasterName} / 47781";
-        this.LastMagicChargeResult = resultText;
+        this.LastMagicChargeResult = "マジックアウト後の判定仕様は保留中";
+
+        this.SetMagicChargeScreenText(this.LastMagicChargeResult);
     }
 
-    private MagicChargeKind ToMagicChargeKind(uint actionId)
+    private void UpdateMagicChargeStatusFromKefka()
     {
-        return actionId switch
+        var kefka = this.FindMagicChargeKefka();
+        if (kefka == null)
+            return;
+
+        var changed = false;
+
+        foreach (var status in kefka.StatusList)
         {
-            47768 => MagicChargeKind.FanNoStep,
-            47771 => MagicChargeKind.FanStep,
-            47774 => MagicChargeKind.FanStep,
-            47775 => MagicChargeKind.LineNoStep,
-            47776 => MagicChargeKind.LineStep,
-            47777 => MagicChargeKind.LineStep,
-            _ => MagicChargeKind.None
+            if (status.StatusId == 1485)
+            {
+                var state = status.Param == 0
+                    ? MagicChargeStatusState.True
+                    : MagicChargeStatusState.Fake;
+
+                if (this.chargeThunderState != state)
+                {
+                    this.chargeThunderState = state;
+                    changed = true;
+                }
+            }
+
+            if (status.StatusId == 1484)
+            {
+                var state = status.Param == 0
+                    ? MagicChargeStatusState.True
+                    : MagicChargeStatusState.Fake;
+
+                if (this.chargeBlizzardState != state)
+                {
+                    this.chargeBlizzardState = state;
+                    changed = true;
+                }
+            }
+        }
+
+        if (!changed)
+            return;
+
+        this.LastMagicChargeResult =
+            $"チャージ：サンダガ:{this.GetMagicChargeStatusStateDisplayName(this.chargeThunderState)} / " +
+            $"チャージ：ブリザガ:{this.GetMagicChargeStatusStateDisplayName(this.chargeBlizzardState)}";
+
+        this.SetMagicChargeScreenText(this.LastMagicChargeResult);
+    }
+
+    private IBattleChara? FindMagicChargeKefka()
+    {
+        foreach (var obj in this.objectTable)
+        {
+            if (obj is not IBattleChara battleChara)
+                continue;
+
+            var name = battleChara.Name.ToString();
+
+            if (this.configuration.FilterByCasterName)
+            {
+                if (string.IsNullOrWhiteSpace(this.configuration.CasterNameKeyword))
+                    continue;
+
+                if (!name.Contains(this.configuration.CasterNameKeyword, StringComparison.OrdinalIgnoreCase))
+                    continue;
+            }
+
+            foreach (var status in battleChara.StatusList)
+            {
+                if (status.StatusId == 1485 || status.StatusId == 1484)
+                    return battleChara;
+            }
+        }
+
+        return null;
+    }
+
+    private string GetMagicChargeStatusStateDisplayName(MagicChargeStatusState state)
+    {
+        return state switch
+        {
+            MagicChargeStatusState.True => "真",
+            MagicChargeStatusState.Fake => "偽",
+            _ => "未取得"
         };
     }
 
-    private string GetMagicChargeResultText()
+    private void SetMagicChargeScreenText(string text)
     {
-        if (this.magicChargeSlots.Count < 2)
-            return string.Empty;
-
-        var hasFanNoStep = this.magicChargeSlots.Contains(MagicChargeKind.FanNoStep);
-        var hasFanStep = this.magicChargeSlots.Contains(MagicChargeKind.FanStep);
-
-        var hasLineNoStep = this.magicChargeSlots.Contains(MagicChargeKind.LineNoStep);
-        var hasLineStep = this.magicChargeSlots.Contains(MagicChargeKind.LineStep);
-
-        if (hasFanNoStep && hasLineNoStep)
-            return this.configuration.MagicChargeFanNoStepLineNoStepText;
-
-        if (hasFanNoStep && hasLineStep)
-            return this.configuration.MagicChargeFanNoStepLineStepText;
-
-        if (hasFanStep && hasLineNoStep)
-            return this.configuration.MagicChargeFanStepLineNoStepText;
-
-        if (hasFanStep && hasLineStep)
-            return this.configuration.MagicChargeFanStepLineStepText;
-
-        return string.Empty;
+        this.activeChargeText = text;
+        this.activeChargeStartedAt = DateTime.Now;
+        this.activeChargeUntil = DateTime.Now.AddSeconds(this.configuration.MagicChargeDisplaySeconds);
     }
 
-    private string GetMagicChargeKindDisplayName(MagicChargeKind kind)
+    private float GetMagicChargePresetFontSize()
     {
-        return kind switch
+        var baseSize = Math.Max(8.0f, this.configuration.MagicChargeFontSize);
+
+        return this.configuration.MagicChargeFontPreset switch
         {
-            MagicChargeKind.FanNoStep => "47768 / ひろがるブリザガ",
-            MagicChargeKind.FanStep => "47771 or 47774 / ひろがるブリザガ",
-            MagicChargeKind.LineNoStep => "47775 / もりもりサンダガ",
-            MagicChargeKind.LineStep => "47776 or 47777 / もりもりサンダガ",
-            _ => "未取得"
+            1 => baseSize * 1.20f,
+            2 => baseSize * 1.10f,
+            3 => baseSize * 0.90f,
+            _ => baseSize
+        };
+    }
+
+    private float GetMagicChargePresetOutlineThickness()
+    {
+        var baseThickness = Math.Max(0.0f, this.configuration.MagicChargeOutlineThickness);
+
+        return this.configuration.MagicChargeFontPreset switch
+        {
+            2 => baseThickness + 1.0f,
+            _ => baseThickness
+        };
+    }
+
+    private void SetGrandCrossText(string text, bool resetFade)
+    {
+        this.activeGrandCrossText = text;
+
+        if (resetFade || this.activeGrandCrossStartedAt == DateTime.MinValue || DateTime.Now > this.activeGrandCrossUntil)
+            this.activeGrandCrossStartedAt = DateTime.Now;
+
+        this.activeGrandCrossUntil = DateTime.Now.AddSeconds(this.configuration.GrandCrossDisplaySeconds);
+    }
+
+    private float GetGrandCrossPresetFontSize()
+    {
+        var baseSize = Math.Max(8.0f, this.configuration.GrandCrossFontSize);
+
+        return this.configuration.GrandCrossFontPreset switch
+        {
+            1 => baseSize * 1.20f,
+            2 => baseSize * 1.10f,
+            3 => baseSize * 0.90f,
+            _ => baseSize
+        };
+    }
+
+    private float GetGrandCrossPresetOutlineThickness()
+    {
+        var baseThickness = Math.Max(0.0f, this.configuration.GrandCrossOutlineThickness);
+
+        return this.configuration.GrandCrossFontPreset switch
+        {
+            2 => baseThickness + 1.0f,
+            _ => baseThickness
         };
     }
 
@@ -661,6 +784,7 @@ public sealed class Plugin : IDalamudPlugin
                 this.grandCrossCapturedCastCount = 0;
                 this.grandCrossCycleCompleted = false;
                 this.activeGrandCrossText = string.Empty;
+                this.activeGrandCrossStartedAt = DateTime.MinValue;
                 this.activeGrandCrossUntil = DateTime.MinValue;
             }
 
@@ -752,7 +876,7 @@ public sealed class Plugin : IDalamudPlugin
         this.LastGrandCrossEvent = $"グランドクロス保持: {addedText}";
         this.LastGrandCrossResult = string.Join(
             this.configuration.GrandCrossSeparator,
-            this.GetActiveGrandCrossDisplayItemsSorted().Select(item => item.DisplayText)
+            this.GetActiveGrandCrossDisplayItemsSorted().Select(this.FormatGrandCrossDisplayItem)
         );
 
         if (this.grandCrossCapturedCastCount >= 3)
@@ -818,6 +942,7 @@ public sealed class Plugin : IDalamudPlugin
             return;
 
         var addedTexts = new List<string>();
+        var capturedStatusIds = new List<uint>();
 
         foreach (var status in localPlayer.StatusList)
         {
@@ -837,9 +962,14 @@ public sealed class Plugin : IDalamudPlugin
                 false
             );
 
+            capturedStatusIds.Add(status.StatusId);
+
             if (shouldLog)
                 addedTexts.Add($"{displayText} / 残り {status.RemainingTime:0.0}秒");
         }
+
+        if (capturedStatusIds.Count > 0)
+            this.pendingChaosDebuffTexts.RemoveAll(item => capturedStatusIds.Contains(item.StatusId));
 
         if (addedTexts.Count == 0)
             return;
@@ -849,7 +979,7 @@ public sealed class Plugin : IDalamudPlugin
 
         this.LastGrandCrossResult = string.Join(
             this.configuration.GrandCrossSeparator,
-            this.GetActiveGrandCrossDisplayItemsSorted().Select(item => item.DisplayText)
+            this.GetActiveGrandCrossDisplayItemsSorted().Select(this.FormatGrandCrossDisplayItem)
         );
 
         if (this.grandCrossCycleCompleted)
@@ -1067,6 +1197,7 @@ public sealed class Plugin : IDalamudPlugin
         if (activeItems.Count == 0)
         {
             this.activeGrandCrossText = string.Empty;
+            this.activeGrandCrossStartedAt = DateTime.MinValue;
             this.activeGrandCrossUntil = DateTime.MinValue;
             this.LastGrandCrossResult = string.Empty;
             return;
@@ -1074,14 +1205,17 @@ public sealed class Plugin : IDalamudPlugin
 
         var resultText = string.Join(
             this.configuration.GrandCrossSeparator,
-            activeItems.Select(item => item.DisplayText)
+            activeItems.Select(this.FormatGrandCrossDisplayItem)
         );
 
-        this.activeGrandCrossText = resultText;
-
-        this.activeGrandCrossUntil = DateTime.Now.AddSeconds(this.configuration.GrandCrossDisplaySeconds);
+        this.SetGrandCrossText(resultText, resetFade: false);
 
         this.LastGrandCrossResult = resultText;
+    }
+
+    private string FormatGrandCrossDisplayItem(GrandCrossDisplayItem item)
+    {
+        return $"{item.DisplayText}｛{item.RemainingTime:0.0}s｝";
     }
 
     private HashSet<string> CreateGrandCrossStatusSnapshot()
@@ -1153,6 +1287,147 @@ public sealed class Plugin : IDalamudPlugin
             5548 => this.configuration.GrandCrossTsunamiTrueText,
             _ => string.Empty
         };
+    }
+
+    private void DrawScreenText(
+        string text,
+        DateTime startedAt,
+        DateTime until,
+        float screenPositionX,
+        float screenPositionY,
+        float fontSize,
+        bool drawBackground,
+        Vector4 textColor,
+        float fadeInSeconds,
+        bool useOutline,
+        float outlineThickness,
+        Vector4 outlineColor,
+        int fontPreset)
+    {
+        if (DateTime.Now > until)
+            return;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        var actualStartedAt = startedAt == DateTime.MinValue
+            ? DateTime.Now.AddSeconds(-fadeInSeconds)
+            : startedAt;
+
+        var elapsed = (float)(DateTime.Now - actualStartedAt).TotalSeconds;
+        var alpha = fadeInSeconds <= 0.0f
+            ? 1.0f
+            : Math.Clamp(elapsed / fadeInSeconds, 0.0f, 1.0f);
+
+        var finalTextColor = new Vector4(
+            textColor.X,
+            textColor.Y,
+            textColor.Z,
+            Math.Clamp(textColor.W * alpha, 0.0f, 1.0f)
+        );
+
+        var finalOutlineColor = new Vector4(
+            outlineColor.X,
+            outlineColor.Y,
+            outlineColor.Z,
+            Math.Clamp(outlineColor.W * alpha, 0.0f, 1.0f)
+        );
+
+        var drawList = ImGui.GetForegroundDrawList();
+
+        var textSize = ImGui.CalcTextSize(text);
+        var baseFontSize = MathF.Max(1.0f, ImGui.GetFontSize());
+        var fontScale = fontSize / baseFontSize;
+        textSize *= fontScale;
+
+        var textPosition = new Vector2(
+            MathF.Round(screenPositionX - textSize.X / 2.0f),
+            MathF.Round(screenPositionY - textSize.Y / 2.0f)
+        );
+
+        if (drawBackground)
+        {
+            var padding = fontPreset switch
+            {
+                2 => new Vector2(10.0f, 6.0f),
+                _ => new Vector2(8.0f, 5.0f)
+            };
+
+            var bgMin = new Vector2(
+                MathF.Round(textPosition.X - padding.X),
+                MathF.Round(textPosition.Y - padding.Y)
+            );
+
+            var bgMax = new Vector2(
+                MathF.Round(textPosition.X + textSize.X + padding.X),
+                MathF.Round(textPosition.Y + textSize.Y + padding.Y)
+            );
+
+            drawList.AddRectFilled(
+                bgMin,
+                bgMax,
+                ImGui.ColorConvertFloat4ToU32(new Vector4(0f, 0f, 0f, 0.55f * alpha)),
+                6.0f
+            );
+        }
+
+        if (useOutline && outlineThickness > 0.0f)
+        {
+            var crispOutlineThickness = MathF.Max(1.0f, MathF.Round(outlineThickness));
+
+            this.DrawTextOutline(
+                drawList,
+                text,
+                textPosition,
+                fontSize,
+                finalOutlineColor,
+                crispOutlineThickness
+            );
+        }
+
+        drawList.AddText(
+            ImGui.GetFont(),
+            fontSize,
+            textPosition,
+            ImGui.ColorConvertFloat4ToU32(finalTextColor),
+            text
+        );
+    }
+
+    private void DrawTextOutline(
+        ImDrawListPtr drawList,
+        string text,
+        Vector2 textPosition,
+        float fontSize,
+        Vector4 outlineColor,
+        float thickness)
+    {
+        var color = ImGui.ColorConvertFloat4ToU32(outlineColor);
+
+        var crispThickness = MathF.Max(1.0f, MathF.Round(thickness));
+
+        var offsets = new[]
+        {
+            new Vector2(-crispThickness, 0.0f),
+            new Vector2(crispThickness, 0.0f),
+            new Vector2(0.0f, -crispThickness),
+            new Vector2(0.0f, crispThickness),
+            new Vector2(-crispThickness, -crispThickness),
+            new Vector2(crispThickness, -crispThickness),
+            new Vector2(-crispThickness, crispThickness),
+            new Vector2(crispThickness, crispThickness),
+        };
+
+        foreach (var offset in offsets)
+        {
+            drawList.AddText(
+                ImGui.GetFont(),
+                fontSize,
+                textPosition + offset,
+                color,
+                text
+            );
+        }
     }
 
     private void DrawOverheadText(
@@ -1292,12 +1567,10 @@ public sealed class Plugin : IDalamudPlugin
         float RemainingTime
     );
 
-    private enum MagicChargeKind
+    private enum MagicChargeStatusState
     {
-        None = 0,
-        FanNoStep = 1,
-        FanStep = 2,
-        LineNoStep = 3,
-        LineStep = 4
+        Unknown = 0,
+        True = 1,
+        Fake = 2
     }
 }
