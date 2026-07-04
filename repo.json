@@ -3,7 +3,7 @@
         "Author": "Rowsai",
         "Name": "magicLook",
         "InternalName": "magicLook",
-        "AssemblyVersion": "0.0.0.5",
+        "AssemblyVersion": "0.0.0.6",
         "Description": "絶妖星乱舞のケフカの詠唱アクションを監視し、magicLook / magicCharge の判定テキストをプレイヤー頭上へ表示します。",
         "ApplicableVersion": "any",
         "DalamudApiLevel": 15,
